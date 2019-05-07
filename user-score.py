@@ -11,6 +11,7 @@ df = pd.read_csv('open-university-analytics-datasets-unzipped/studentAssessment.
 # 筛选出is_banked=0的记录
 # df2 = df[df['is_banked'].isin([0])]
 df2 = df[df['is_banked'] == 0]
+df2 = df2[df2['score'] >= 1]
 df2.reset_index(inplace=True)
 # print(df2.shape[0])
 
@@ -32,19 +33,17 @@ df3 = pd.merge(df2, assessments, how='left', on='id_assessment')
 
 print(df3)
 print(df3.columns)
-# print(df3['assessment_type_y'].value_counts())
 
+# df3.to_csv('user-score.csv', index=False)
+
+# print(df3['assessment_type_y'].value_counts())
 # print(assessments)
 # print(assessments[assessments['id_assessment'] == 1752].index)
 # print(df2.columns)
-
 # df2_index = list(df2.columns).index('id_assessment')
 # print(df2.iloc[5, 0])
-#
 
-#
 # df3.iloc[5, 0] = df2.iloc[5, 1]
-
 # print(df2.loc[0, 'id_assessment'])
 # print(assessments.loc[0, 'id_assessment'])
 #
