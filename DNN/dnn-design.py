@@ -9,11 +9,12 @@ from keras.utils import to_categorical
 
 total_merge = pd.read_csv('../totalmerge/total_merge.csv')
 
-
 """
-# 用户性别
+
+# 用户性别 gender
 # M(男性)=[1,0] 
 # F(女性)=[0,1]
+
 """
 list_gender = list(total_merge['gender'])
 num_gender = []
@@ -28,10 +29,9 @@ for gender in list_gender:
 
 cat_gender = to_categorical(num_gender, 2)
 
-
 """
 
-用户地区
+用户地区 region
 
 #0  East Anglian Region     18064
 #1  Scotland                17733
@@ -83,10 +83,9 @@ for region in list_region:
 
 cat_region = to_categorical(num_region, 13)
 
-
 """
 
-进入课程时的最高教育水平
+进入课程时的最高教育水平 highest_education
 
 #0 A Level or Equivalent          78837
 #1 Lower Than A Level             62269
@@ -114,10 +113,9 @@ for education in list_highest_education:
 
 cat_highest_education = to_categorical(num_highest_education, 5)
 
-
 """
 
-剥夺指数,用于衡量一个地区的贫困程度，涉及7个领域：
+剥夺指数 imd_band,用于衡量一个地区的贫困程度，涉及7个领域：
 收入、就业、健康剥夺与残疾、教育与职业技能培训剥夺、住房与服务间的障碍隔阂、居住环境剥夺、犯罪
 
 #0  0-10%      14954
@@ -169,10 +167,9 @@ cat_imd_band = to_categorical(num_imd_band, 11)
 # 删除最后一列
 cat_imd_band = np.delete(cat_imd_band, -1, axis=1)
 
-
 """
 
-年龄段
+年龄段 age_band
 
 #0 0-35     117818
 #1 35-55     52551
@@ -194,10 +191,9 @@ for age in list_age_band:
 
 cat_age_band = to_categorical(num_age_band, 3)
 
-
 """
 
-学生尝试此课程的次数
+学生尝试此课程的次数 num_of_prev_attempts
 
 #0 0    153296
 #1 1     14712
@@ -215,22 +211,161 @@ num_num_of_prev_attempts = []
 
 cat_num_of_prev_attempts = to_categorical(list_num_of_prev_attempts, 7)
 
+"""
+
+学习信用 studied_credits
+取值范围 30-630
+
+#0 30-59
+#1 60-89
+#2 90-119
+#3 120-149
+#4 150-179
+#5 >=180
+
+# Name: studied_credits, dtype: int64
+
+"""
+list_studied_credits = list(total_merge['studied_credits'])
+num_studied_credits = []
+
+for cred_num in list_studied_credits:
+    if (cred_num >= 30) & (cred_num <= 59):
+        num_studied_credits.append(0)
+    elif (cred_num >= 60) & (cred_num <= 89):
+        num_studied_credits.append(1)
+    elif (cred_num >= 90) & (cred_num <= 119):
+        num_studied_credits.append(2)
+    elif (cred_num >= 120) & (cred_num <= 149):
+        num_studied_credits.append(3)
+    elif (cred_num >= 150) & (cred_num <= 179):
+        num_studied_credits.append(4)
+    elif cred_num >= 180:
+        num_studied_credits.append(5)
+
+cat_studied_credits = to_categorical(num_studied_credits, 6)
+
+"""
+
+是否残疾 disability
+
+#1 N    156708
+#2 Y     14795
+
+# Name: disability, dtype: int64
+
+"""
+list_disability = list(total_merge['disability'])
+num_disability = []
+
+for dis in list_disability:
+    if dis == 'N':
+        num_disability.append(0)
+    elif dis == 'Y':
+        num_disability.append(1)
+
+cat_disability = to_categorical(num_disability, 2)
+
+"""
+
+期末测试结果 final_result
+
+#0 Pass           105345
+#1 Fail            27414
+#2 Distinction     26238
+#3 Withdrawn       12506
+
+# Name: final_result, dtype: int64
+
+"""
+list_final_result = list(total_merge['final_result'])
+num_final_result = []
+
+for result in list_final_result:
+    if result == 'Pass':
+        num_final_result.append(0)
+    elif result == 'Fail':
+        num_final_result.append(1)
+    elif result == 'Distinction':
+        num_final_result.append(2)
+    elif result == 'Withdrawn':
+        num_final_result.append(3)
+
+cat_final_result = to_categorical(num_final_result, 4)
+
+"""
+
+测试类型 assessment_type
+
+#0 TMA     96732
+#1 CMA     69815
+#2 Exam     4956
+
+# Name: assessment_type, dtype: int64
+
+"""
+list_assessment_type = list(total_merge['assessment_type'])
+num_assessment_type = []
+
+for astype in list_assessment_type:
+    if astype == 'TMA':
+        num_assessment_type.append(0)
+    elif astype == 'CMA':
+        num_assessment_type.append(1)
+    elif astype == 'Exam':
+        num_assessment_type.append(2)
+
+cat_assessment_type = to_categorical(num_assessment_type, 3)
+
+"""
+
+测试权重 weight
+
+0-1标准化
+
+"""
+list_weight = np.array(total_merge['weight'])
+cat_weight = []
+weight_min = list_weight.min()
+weight_max = list_weight.max()
+max_min = weight_max - weight_min
+
+for weight in list_weight:
+    ff = (weight - weight_min) / max_min
+    num_weight = '%.3f' % ff
+    cat_weight.append(num_weight)
+
+cat_weight = np.array(cat_weight)
+
+"""
+
+日均点击数 clickavg
+
+0-1标准化
+
+>=10 视为1
+
+"""
+list_clickavg = list(total_merge['clickavg'])
+cat_clickavg = []
+clickavg_min = 0
+clickavg_max = 10
+
+for avg in list_clickavg:
+    if math.isnan(avg):
+        num_avg = 0
+    else:
+        ff = (avg - clickavg_min)/(clickavg_max - clickavg_min)
+        num_avg = '%.3f' % ff
+    cat_clickavg.append(num_avg)
+
+# df_clickavg = pd.DataFrame(cat_clickavg, columns=['avgavg'])
+# df_clickavg = df_clickavg.fillna(0, method=None)
+
+cat_clickavg = np.array(cat_clickavg)
+
 
 
 print()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # 171503

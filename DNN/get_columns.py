@@ -7,8 +7,15 @@ import numpy as np
 
 total_merge = pd.read_csv('../totalmerge/total_merge.csv')
 
-kkk = total_merge['num_of_prev_attempts'].value_counts(dropna=False)
+kkk = total_merge['assessment_type'].value_counts(dropna=False)
+
+# kkk_min = total_merge['studied_credits'].min()
+#
+# kkk_max = total_merge['studied_credits'].max()
+
 
 print(kkk)
+# print(kkk_min)
+# print(kkk_max)
 
 # print(kkk_index)
