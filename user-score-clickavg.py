@@ -108,7 +108,7 @@ for rename in rename_list:
             # print('已处理%s条记录' % str(number_record))
 
     # 保存数据表
-    user_score.to_csv('different_clickavg/%s_clickavg.csv' % rename)
+    user_score.to_csv('different_clickavg/%s_clickavg.csv' % rename, index=False)
     print('已完成表%s,这张表共处理%s条记录' % (rename, str(number_record)))
 
     sum_count += number_record
@@ -121,7 +121,7 @@ for rename in rename_list:
         merge_df = pd.merge(former_df, user_score, how='outer')
         former_df = merge_df
 
-merge_df.to_csv('different_clickavg/merge_clickavg.csv')
+merge_df.to_csv('different_clickavg/merge_clickavg.csv', index=False)
 print('工作结束，共处理%s张表,共处理%s条记录' % (table_count, sum_count))
 
 
