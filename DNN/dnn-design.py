@@ -3,10 +3,12 @@ __author__ = 'yfj'
 __date__ = '2019/5/9 13:57'
 
 import pandas as pd
+import math
 import numpy as np
 from keras.utils import to_categorical
 
 total_merge = pd.read_csv('../totalmerge/total_merge.csv')
+
 
 """
 # 用户性别
@@ -25,6 +27,7 @@ for gender in list_gender:
         num_gender.append(1)
 
 cat_gender = to_categorical(num_gender, 2)
+
 
 """
 
@@ -110,6 +113,108 @@ for education in list_highest_education:
         num_highest_education.append(4)
 
 cat_highest_education = to_categorical(num_highest_education, 5)
+
+
+"""
+
+剥夺指数,用于衡量一个地区的贫困程度，涉及7个领域：
+收入、就业、健康剥夺与残疾、教育与职业技能培训剥夺、住房与服务间的障碍隔阂、居住环境剥夺、犯罪
+
+#0  0-10%      14954
+#1  10-20      16508
+#2  20-30%     17271
+#3  30-40%     18981
+#4  40-50%     16841
+#5  50-60%     16755
+#6  60-70%     15939
+#7  70-80%     16077
+#8  80-90%     15616
+#9  90-100%    14947
+#10 NaN         7614(转为全0向量表示)
+
+实际只有10类
+
+# Name: imd_band, dtype: int64
+
+"""
+list_imd_band = list(total_merge['imd_band'])
+num_imd_band = []
+
+for imd in list_imd_band:
+    if imd == '0-10%':
+        num_imd_band.append(0)
+    elif imd == '10-20':
+        num_imd_band.append(1)
+    elif imd == '20-30%':
+        num_imd_band.append(2)
+    elif imd == '30-40%':
+        num_imd_band.append(3)
+    elif imd == '40-50%':
+        num_imd_band.append(4)
+    elif imd == '50-60%':
+        num_imd_band.append(5)
+    elif imd == '60-70%':
+        num_imd_band.append(6)
+    elif imd == '70-80%':
+        num_imd_band.append(7)
+    elif imd == '80-90%':
+        num_imd_band.append(8)
+    elif imd == '90-100%':
+        num_imd_band.append(9)
+    elif math.isnan(imd):
+        num_imd_band.append(10)
+
+cat_imd_band = to_categorical(num_imd_band, 11)
+
+# 删除最后一列
+cat_imd_band = np.delete(cat_imd_band, -1, axis=1)
+
+
+"""
+
+年龄段
+
+#0 0-35     117818
+#1 35-55     52551
+#2 55<=       1134
+
+# Name: age_band, dtype: int64
+
+"""
+list_age_band = list(total_merge['age_band'])
+num_age_band = []
+
+for age in list_age_band:
+    if age == '0-35':
+        num_age_band.append(0)
+    elif age == '35-55':
+        num_age_band.append(1)
+    elif age == '55<=':
+        num_age_band.append(2)
+
+cat_age_band = to_categorical(num_age_band, 3)
+
+
+"""
+
+学生尝试此课程的次数
+
+#0 0    153296
+#1 1     14712
+#2 2      2767
+#3 3       523
+#4 4       153
+#5 5        39
+#6 6        13
+
+# Name: num_of_prev_attempts, dtype: int64
+
+"""
+list_num_of_prev_attempts = list(total_merge['num_of_prev_attempts'])
+num_num_of_prev_attempts = []
+
+cat_num_of_prev_attempts = to_categorical(list_num_of_prev_attempts, 7)
+
 
 
 print()

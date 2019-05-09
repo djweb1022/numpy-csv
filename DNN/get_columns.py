@@ -7,6 +7,8 @@ import numpy as np
 
 total_merge = pd.read_csv('../totalmerge/total_merge.csv')
 
-kkk = total_merge['highest_education'].value_counts()
+kkk = total_merge['num_of_prev_attempts'].value_counts(dropna=False)
 
 print(kkk)
+
+# print(kkk_index)
