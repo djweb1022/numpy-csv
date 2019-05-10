@@ -369,6 +369,23 @@ for avg in list_clickavg:
 
 cat_clickavg = np.array(cat_clickavg)
 
+"""
+
+分数 score
+
+0-1标准化
+
+范围1-100
+
+"""
+list_score = list(total_merge['score'])
+num_score = []
+
+for score in list_score:
+    new_score = score/100
+    num_score.append(new_score)
+
+cat_score = np.array(num_score)
 
 """列出统计的12种活动类型"""
 list_activity_type = ['forumng', 'oucontent', 'subpage', 'homepage', 'quiz', 'resource', 'url', 'ouwiki',
@@ -408,29 +425,93 @@ cat_activity_type = np.array(lscat_activity_type).T
 
 
 """
-cat_activity_type       (171503,12)
-cat_age_band            (171503,3)
-cat_assessment_type     (171503,3)
-cat_clickavg            (171503,)
-cat_disability          (171503,2)
-cat_final_result        (171503,4)
-cat_gender              (171503,2)
-cat_highest_education   (171503,5)
-cat_imd_band            (171503,10)
-cat_num_of_prev_attempts(171503,7)
-cat_region              (171503,13)
-cat_studied_credits     (171503,6)
-cat_weight              (171503,)
+
+用户情境：
+#1 cat_disability          (171503,2)
+#2 cat_gender              (171503,2)
+#3 cat_age_band            (171503,3)
+#4 cat_highest_education   (171503,5)
+#5 cat_num_of_prev_attempts(171503,7)
+#6 cat_imd_band            (171503,10)
+#7 cat_region              (171503,13)
+
+交互情境：
+#8 cat_clickavg            (171503,)
+#9 cat_weight              (171503,)
+#10 cat_studied_credits     (171503,6)
+#11 cat_activity_type       (171503,12)
+
+平台情境：
+#12 cat_assessment_type     (171503,3)
+
+标签：
+#13 cat_score               (171503,)
+#14 cat_final_result        (171503,4)
 
 """
 
+# 按情境分类将数组进行横向拼接
+merge_1_7 = np.hstack([cat_disability, cat_gender, cat_age_band, cat_highest_education, cat_num_of_prev_attempts,
+                       cat_imd_band, cat_region])
 
-k_1 = cat_weight.shape
-k_2 = cat_clickavg.shape
+# 将一维数组调整为一列
+reshape_8 = cat_clickavg.reshape((cat_clickavg.shape[0], 1))
+reshape_9 = cat_weight.reshape((cat_weight.shape[0], 1))
 
-kkk = np.vstack([cat_weight, cat_clickavg]).T
+merge_8_11 = np.hstack([reshape_8, reshape_9, cat_studied_credits, cat_activity_type])
+# merge_8_11 = np.around(merge_8_11, decimals=3)
 
-KKK_1 = kkk[1]
+merge_12 = cat_assessment_type
+
+reshape_13 = cat_score.reshape((cat_score.shape[0], 1))
+
+merge_13_14 = np.hstack([reshape_13, cat_final_result])
+
+# 形成总二维数组
+merge_1_14 = np.hstack([merge_1_7, merge_8_11, merge_12, merge_13_14])
+
+# 将数组中所有元素转化为float32类型
+merge_final = merge_1_14.astype('float32')
+
+# 随机打乱样本顺序
+np.random.shuffle(merge_final)
+
+split_1 = merge_final[:, :42]
+
+split_2 = merge_final[:, 42:62]
+
+split_3 = merge_final[:, 62:65]
+
+split_4 = merge_final[:, 65:]
+
+
+
+
+
+
+
+
+
+# merge_final = np.around(merge_1_14_float32, decimals=3)
+
+# split_1 = merge_1_14[:, :42]
+#
+# split_2 = merge_1_14[:, 42:62]
+#
+# split_3 = merge_1_14[:, 62:65]
+#
+# split_4 = merge_1_14[:, 65:]
+
+
+
+# merge_13_14 = np.hstack([cat_score, cat_final_result])
+
+# k_1 = cat_weight.shape
+# k_2 = cat_clickavg.shape
+#
+# kkk = np.vstack([cat_weight, cat_clickavg]).T
+#
+# KKK_1 = kkk[1]
 
 
 
