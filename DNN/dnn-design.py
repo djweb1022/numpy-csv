@@ -343,17 +343,22 @@ cat_weight = np.array(cat_weight)
 
 0-1标准化
 
->=10 视为1
+取均值两倍作最大值，大于最大值的视为1
 
 """
 list_clickavg = list(total_merge['clickavg'])
 cat_clickavg = []
 clickavg_min = 0
-clickavg_max = 10
+clickavg_mean = total_merge['clickavg'].mean()
+clickavg_max = math.ceil(clickavg_mean*2)
 
 for avg in list_clickavg:
     if math.isnan(avg):
         num_avg = 0
+    elif avg > clickavg_max:
+        avg = clickavg_max
+        ff = (avg - clickavg_min)/(clickavg_max - clickavg_min)
+        num_avg = '%.3f' % ff
     else:
         ff = (avg - clickavg_min)/(clickavg_max - clickavg_min)
         num_avg = '%.3f' % ff
@@ -363,6 +368,69 @@ for avg in list_clickavg:
 # df_clickavg = df_clickavg.fillna(0, method=None)
 
 cat_clickavg = np.array(cat_clickavg)
+
+
+"""列出统计的12种活动类型"""
+list_activity_type = ['forumng', 'oucontent', 'subpage', 'homepage', 'quiz', 'resource', 'url', 'ouwiki',
+                      'oucollaborate', 'externalquiz', 'page', 'questionnaire', ]
+
+# 初始化空数组用于存放12列标准化之后的数值
+lscat_activity_type = []
+
+for str_type in list_activity_type:
+
+    # 取出列
+    list_str_type = list(total_merge[str_type])
+
+    # 计算该列平均值
+    type_mean = total_merge[str_type].mean()
+
+    # 以平均值的两倍作为最大值(向上取整)
+    type_max = math.ceil(type_mean*2)
+
+    # 取出该列最小值
+    type_min = total_merge[str_type].min()
+
+    # 初始化空数组用于存放该列归一化之后的值
+    list_num = []
+
+    for num in list_str_type:
+        if num > type_max:
+            num = type_max
+        ff = (num - type_min) / (type_max - type_min)
+        num_type = '%.3f' % ff
+        list_num.append(num_type)
+
+    lscat_activity_type.append(list_num)
+
+# 转为ndarray类型
+cat_activity_type = np.array(lscat_activity_type).T
+
+
+"""
+cat_activity_type       (171503,12)
+cat_age_band            (171503,3)
+cat_assessment_type     (171503,3)
+cat_clickavg            (171503,)
+cat_disability          (171503,2)
+cat_final_result        (171503,4)
+cat_gender              (171503,2)
+cat_highest_education   (171503,5)
+cat_imd_band            (171503,10)
+cat_num_of_prev_attempts(171503,7)
+cat_region              (171503,13)
+cat_studied_credits     (171503,6)
+cat_weight              (171503,)
+
+"""
+
+
+k_1 = cat_weight.shape
+k_2 = cat_clickavg.shape
+
+kkk = np.vstack([cat_weight, cat_clickavg]).T
+
+KKK_1 = kkk[1]
 
 
 

@@ -7,7 +7,9 @@ import numpy as np
 
 total_merge = pd.read_csv('../totalmerge/total_merge.csv')
 
-kkk = total_merge['assessment_type'].value_counts(dropna=False)
+kkk = total_merge['forumng'].value_counts(dropna=False)
+
+kkk_avg = total_merge['forumng'].mean()
 
 # kkk_min = total_merge['studied_credits'].min()
 #
@@ -15,6 +17,8 @@ kkk = total_merge['assessment_type'].value_counts(dropna=False)
 
 
 print(kkk)
+
+print(kkk_avg)
 # print(kkk_min)
 # print(kkk_max)
 
