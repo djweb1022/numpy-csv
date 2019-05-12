@@ -391,6 +391,23 @@ for score in list_score:
 
 cat_score = np.array(num_score)
 
+"""
+用户ID
+
+"""
+list_id_student = list(total_merge['id_student'])
+cat_id_student = np.array(list_id_student)
+
+
+"""
+测试ID
+
+"""
+list_id_assessment = list(total_merge['id_assessment'])
+cat_id_assessment = np.array(list_id_assessment)
+
+
+
 """列出统计的12种活动类型"""
 list_activity_type = ['forumng', 'oucontent', 'subpage', 'homepage', 'quiz', 'resource', 'url', 'ouwiki',
                       'oucollaborate', 'externalquiz', 'page', 'questionnaire', ]
@@ -452,6 +469,12 @@ cat_activity_type = np.array(lscat_activity_type).T
 #13 cat_score               (171503,)
 #14 cat_final_result        (171503,)
 
+用户ID:
+#15 cat_id_student          (171503,)
+
+测试ID：
+#16 cat_id_assessment       (171503,)
+
 """
 
 # 按情境分类将数组进行横向拼接
@@ -468,16 +491,22 @@ merge_8_11 = np.hstack([reshape_8, reshape_9, cat_studied_credits, cat_activity_
 merge_12 = cat_assessment_type
 
 reshape_13 = cat_score.reshape((cat_score.shape[0], 1))
-
 reshape_14 = cat_final_result.reshape((cat_final_result.shape[0], 1))
 
 merge_13_14 = np.hstack([reshape_13, reshape_14])
 
+"""用户ID和测试ID的reshape"""
+
+reshape_15 = cat_id_student.reshape((cat_id_student.shape[0], 1))
+reshape_16 = cat_id_assessment.reshape((cat_id_assessment.shape[0], 1))
+
+merge_15_16 = np.hstack([reshape_15, reshape_16])
+
 # 形成总二维数组
-merge_1_14 = np.hstack([merge_1_7, merge_8_11, merge_12, merge_13_14])
+merge_1_16 = np.hstack([merge_1_7, merge_8_11, merge_12, merge_13_14, merge_15_16])
 
 # 将数组中所有元素转化为float32类型
-merge_final = merge_1_14.astype('float32')
+merge_final = merge_1_16.astype('float32')
 
 # 随机打乱样本顺序
 np.random.shuffle(merge_final)
@@ -529,40 +558,40 @@ history = model.fit(train_data_1,
 
 模型设计A
 
-为split_1、split_2、split_3分别设计神经网络，中间合并成一个大网络，最后有2个输出
 
 """
 
+# 用户ID
+train_data_1 = merge_final[:150000, 67:68]
 
+# 测试ID
+train_data_2 = merge_final[:150000, 68:]
 
-split_1 = merge_final[:, :42]
-
-split_2 = merge_final[:, 42:62]
-
-split_3 = merge_final[:, 62:65]
-
-split_4 = merge_final[:, 65:]
-
-# 训练数据集
-train_data_1 = split_1[:150000]
-train_data_2 = split_2[:150000]
-train_data_3 = split_3[:150000]
-# 训练答案集
-train_label_1 = split_4[:150000, :1]
-train_label_2 = split_4[:150000, 1:]
+# 标签集
+train_label_1 = merge_final[:150000, 66:67]
+# train_label_1 = merge_final[:150000, 65:66]
 
 # 验证数据集
-val_data_1 = split_1[150000:160000]
-val_data_2 = split_2[150000:160000]
-val_data_3 = split_3[150000:160000]
-# 验证答案集
-val_label_1 = split_4[150000:160000, :1]
-val_label_2 = split_4[150000:160000, 1:]
+val_data_1 = merge_final[150000:160000, 67:68]
+val_data_2 = merge_final[150000:160000, 68:]
 
+
+# 验证标签集
+val_label_1 = merge_final[150000:160000, 66:67]
+# val_label_1 = merge_final[150000:160000, 65:66]
+
+# 测试集
+test_data_1 = merge_final[160000:, 67:68]
+test_data_2 = merge_final[160000:, 68:]
+test_label_1 = merge_final[160000:, 66:67]
+
+
+id_student_max = total_merge['id_student'].max()
+id_assessment_max = total_merge['id_assessment'].max()
 
 
 # 定义三个输入，分别代表用户、交互、平台情境
-user_input = Input(shape=(17,), name="user_input")
+user_input = Input(shape=(1,), name="user_input")
 # item_input = Input(shape=(split_2.shape[1],), name="input2")
 item_input = Input(shape=(1,), name="item_input")
 
@@ -572,15 +601,15 @@ def init_normal(shape, name=None):
 
 
 # Embedding layer
-MF_Embedding_User = Embedding(input_dim=2, output_dim=10, name='mf_embedding_user',
-                              embeddings_regularizer=l2(0), input_length=17)(user_input)
-MF_Embedding_Item = Embedding(input_dim=2, output_dim=10, name='mf_embedding_item',
-                              embeddings_regularizer=l2(0), input_length=2)(item_input)
+MF_Embedding_User = Embedding(input_dim=id_student_max+1, output_dim=10, name='mf_embedding_user',
+                              embeddings_regularizer=l2(0.005), input_length=1)(user_input)
+MF_Embedding_Item = Embedding(input_dim=id_assessment_max+1, output_dim=10, name='mf_embedding_item',
+                              embeddings_regularizer=l2(0.005), input_length=1)(item_input)
 
-MLP_Embedding_User = Embedding(input_dim=2, output_dim=5, name="mlp_embedding_user",
-                               embeddings_regularizer=l2(0), input_length=1)(user_input)
-MLP_Embedding_Item = Embedding(input_dim=2, output_dim=5, name='mlp_embedding_item',
-                               embeddings_regularizer=l2(0), input_length=1)(item_input)
+MLP_Embedding_User = Embedding(input_dim=id_student_max+1, output_dim=5, name="mlp_embedding_user",
+                               embeddings_regularizer=l2(0.005), input_length=1)(user_input)
+MLP_Embedding_Item = Embedding(input_dim=id_assessment_max+1, output_dim=5, name='mlp_embedding_item',
+                               embeddings_regularizer=l2(0.005), input_length=1)(item_input)
 
 
 # MF part
@@ -649,13 +678,13 @@ model.summary()
 # model = Model(inputs=[input1, input2, input3], outputs=[output1])
 # model = Model(inputs=[input1, input2, input3], outputs=[output1, output2])
 
-model.summary()
+# model.summary()
 
-model.compile(loss={'output1': 'binary_crossentropy'},
-              optimizer=RMSprop(lr=0.001, rho=0.9, epsilon=1e-06),
+model.compile(loss={'prediction': 'binary_crossentropy'},
+              optimizer=RMSprop(lr=0.01, rho=0.9, epsilon=1e-06),
               metrics=['accuracy'])
 # loss_weights = [1, 1],
-# loss={'output1': 'mean_absolute_error', 'output2': 'categorical_crossentropy'},
+# loss={'output1': 'mean_absolute_error', 'output2': 'categorical_crossentropy'binary_crossentropy},
 # train_1 = split_1[:150000]
 # train_2 = split_2[:150000]
 # train_3 = split_3[:150000]
@@ -663,41 +692,57 @@ model.compile(loss={'output1': 'binary_crossentropy'},
 # label_1 = split_4[:150000, :1]
 # label_2 = split_4[:150000, 2:]
 
-history = model.fit({'input1': train_data_1, 'input2': train_data_2, 'input3': train_data_3},
-                    {'output1': train_label_1},
+history = model.fit([train_data_1, train_data_2],
+                    [train_label_1],
                     batch_size=4096,
-                    epochs=2000,
-                    validation_data=([val_data_1, val_data_2, val_data_3], [val_label_1]))
+                    epochs=20,
+                    validation_data=([val_data_1, val_data_2], [val_label_1]))
 
 history_dict = history.history
 print(history_dict.keys())
 print(history_dict)
 
 
+import matplotlib.pyplot as plt
 
-# {'output1': train_label_1, 'output2': train_label_2},
-# merge_final = np.around(merge_1_14_float32, decimals=3)
+acc = history.history['acc']
+val_acc = history.history['val_acc']
+loss = history.history['loss']
+val_loss = history.history['val_loss']
 
-# split_1 = merge_1_14[:, :42]
-#
-# split_2 = merge_1_14[:, 42:62]
-#
-# split_3 = merge_1_14[:, 62:65]
-#
-# split_4 = merge_1_14[:, 65:]
+epochs = range(1, len(acc) + 1)
 
+# "bo" is for "blue dot"
+plt.plot(epochs, loss, 'bo', label='Training loss')
+# b is for "solid blue line"
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
+plt.title('Training and validation loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
 
-
-# merge_13_14 = np.hstack([cat_score, cat_final_result])
-
-# k_1 = cat_weight.shape
-# k_2 = cat_clickavg.shape
-#
-# kkk = np.vstack([cat_weight, cat_clickavg]).T
-#
-# KKK_1 = kkk[1]
+plt.show()
 
 
+# In[38]:
+
+
+plt.clf()   # clear figure
+acc_values = history_dict['acc']
+val_acc_values = history_dict['val_acc']
+
+plt.plot(epochs, acc, 'bo', label='Training acc')
+plt.plot(epochs, val_acc, 'b', label='Validation acc')
+plt.title('Training and validation accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.show()
+
+
+results = model.evaluate([test_data_1, test_data_2], test_label_1)
+print(results)
 
 print()
 
