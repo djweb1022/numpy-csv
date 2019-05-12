@@ -275,6 +275,8 @@ cat_disability = to_categorical(num_disability, 2)
 #2 Distinction     26238
 #3 Withdrawn       12506
 
+1通过 0不通过
+
 # Name: final_result, dtype: int64
 
 """
@@ -283,15 +285,17 @@ num_final_result = []
 
 for result in list_final_result:
     if result == 'Pass':
-        num_final_result.append(0)
-    elif result == 'Fail':
         num_final_result.append(1)
+    elif result == 'Fail':
+        num_final_result.append(0)
     elif result == 'Distinction':
-        num_final_result.append(2)
+        num_final_result.append(0)
     elif result == 'Withdrawn':
-        num_final_result.append(3)
+        num_final_result.append(0)
 
-cat_final_result = to_categorical(num_final_result, 4)
+# cat_final_result = to_categorical(num_final_result, 4)
+cat_final_result = np.array(num_final_result)
+# cat_final_result = np.reshape((cat_final_result.shape[0], 1))
 
 """
 
@@ -427,13 +431,13 @@ cat_activity_type = np.array(lscat_activity_type).T
 """
 
 用户情境：
-#1 cat_disability          (171503,2)
-#2 cat_gender              (171503,2)
-#3 cat_age_band            (171503,3)
-#4 cat_highest_education   (171503,5)
-#5 cat_num_of_prev_attempts(171503,7)
-#6 cat_imd_band            (171503,10)
-#7 cat_region              (171503,13)
+#1 cat_disability          (171503,2)[:, :2]
+#2 cat_gender              (171503,2)[:, 2:4]
+#3 cat_age_band            (171503,3)[:, 4:7]
+#4 cat_highest_education   (171503,5)[:, 7:12]
+#5 cat_num_of_prev_attempts(171503,7)[:, 12:19]
+#6 cat_imd_band            (171503,10)[:, 19:29]
+#7 cat_region              (171503,13)[:, 29:42]
 
 交互情境：
 #8 cat_clickavg            (171503,)
@@ -446,7 +450,7 @@ cat_activity_type = np.array(lscat_activity_type).T
 
 标签：
 #13 cat_score               (171503,)
-#14 cat_final_result        (171503,4)
+#14 cat_final_result        (171503,)
 
 """
 
@@ -465,7 +469,9 @@ merge_12 = cat_assessment_type
 
 reshape_13 = cat_score.reshape((cat_score.shape[0], 1))
 
-merge_13_14 = np.hstack([reshape_13, cat_final_result])
+reshape_14 = cat_final_result.reshape((cat_final_result.shape[0], 1))
+
+merge_13_14 = np.hstack([reshape_13, reshape_14])
 
 # 形成总二维数组
 merge_1_14 = np.hstack([merge_1_7, merge_8_11, merge_12, merge_13_14])
@@ -476,6 +482,59 @@ merge_final = merge_1_14.astype('float32')
 # 随机打乱样本顺序
 np.random.shuffle(merge_final)
 
+
+import keras
+from keras.layers import Input, Dense
+from keras.models import Model
+from keras.optimizers import Adagrad, Adam, SGD, RMSprop
+from keras.layers import Embedding, Input, Dense, merge, Reshape, Flatten, Dropout
+from keras import regularizers
+from keras import initializers
+from keras.regularizers import l1, l2, l1_l2
+from keras.layers.merge import multiply, concatenate
+
+"""
+train_data_1 = merge_final[:150000, 7:12]
+train_data_2 = merge_1_7[:150000, 7:12]
+train_label_1 = merge_final[:150000, 66:]
+
+val_data_1 = merge_final[150000:170000, 7:12]
+val_data_2 = merge_1_7[150000:170000, 7:12]
+val_label_1 = merge_final[150000:170000, 66:]
+
+
+input1 = Input(shape=(train_data_1.shape[1],), name="input1")
+input1_hid_1 = Dense(8, activation='softmax')(input1)
+input1_hid_2 = Dense(4, activation='softmax')(input1_hid_1)
+input1_hid_3 = Dense(2, activation='softmax')(input1_hid_2)
+input1_hid_4 = Dense(1, activation='softmax')(input1_hid_3)
+
+output1 = Dense(1, activation='sigmoid', name="output1")(input1_hid_3)
+
+model = Model(inputs=[input1], outputs=[output1])
+
+model.compile(loss={'output1': 'binary_crossentropy'},
+              optimizer=Adam(lr=10, beta_1=0.9, beta_2=0.999, epsilon=1e-08),
+              metrics=['accuracy'])
+
+history = model.fit(train_data_1,
+                    train_label_1,
+                    batch_size=4096,
+                    epochs=200,
+                    validation_data=([val_data_1], [val_label_1]))
+"""
+
+
+"""
+
+模型设计A
+
+为split_1、split_2、split_3分别设计神经网络，中间合并成一个大网络，最后有2个输出
+
+"""
+
+
+
 split_1 = merge_final[:, :42]
 
 split_2 = merge_final[:, 42:62]
@@ -484,14 +543,139 @@ split_3 = merge_final[:, 62:65]
 
 split_4 = merge_final[:, 65:]
 
+# 训练数据集
+train_data_1 = split_1[:150000]
+train_data_2 = split_2[:150000]
+train_data_3 = split_3[:150000]
+# 训练答案集
+train_label_1 = split_4[:150000, :1]
+train_label_2 = split_4[:150000, 1:]
+
+# 验证数据集
+val_data_1 = split_1[150000:160000]
+val_data_2 = split_2[150000:160000]
+val_data_3 = split_3[150000:160000]
+# 验证答案集
+val_label_1 = split_4[150000:160000, :1]
+val_label_2 = split_4[150000:160000, 1:]
 
 
 
+# 定义三个输入，分别代表用户、交互、平台情境
+user_input = Input(shape=(17,), name="user_input")
+# item_input = Input(shape=(split_2.shape[1],), name="input2")
+item_input = Input(shape=(1,), name="item_input")
+
+
+def init_normal(shape, name=None):
+    return initializers.RandomNormal(mean=0.0, stddev=0.05, seed=None)
+
+
+# Embedding layer
+MF_Embedding_User = Embedding(input_dim=2, output_dim=10, name='mf_embedding_user',
+                              embeddings_regularizer=l2(0), input_length=17)(user_input)
+MF_Embedding_Item = Embedding(input_dim=2, output_dim=10, name='mf_embedding_item',
+                              embeddings_regularizer=l2(0), input_length=2)(item_input)
+
+MLP_Embedding_User = Embedding(input_dim=2, output_dim=5, name="mlp_embedding_user",
+                               embeddings_regularizer=l2(0), input_length=1)(user_input)
+MLP_Embedding_Item = Embedding(input_dim=2, output_dim=5, name='mlp_embedding_item',
+                               embeddings_regularizer=l2(0), input_length=1)(item_input)
+
+
+# MF part
+mf_user_latent = Flatten()(MF_Embedding_User)
+mf_item_latent = Flatten()(MF_Embedding_Item)
+mf_vector = multiply([mf_user_latent, mf_item_latent]) # element-wise multiply
+
+# MLP part
+mlp_user_latent = Flatten()(MLP_Embedding_User)
+mlp_item_latent = Flatten()(MLP_Embedding_Item)
+mlp_vector = concatenate([mlp_user_latent, mlp_item_latent])
+
+layers = [16, 8, 4]
+
+layer1 = Dense(16, kernel_regularizer=l2(0), activation='relu', name="layer1")(mlp_vector)
+layer2 = Dense(8, kernel_regularizer=l2(0), activation='relu', name="layer2")(layer1)
+layer3 = Dense(4, kernel_regularizer=l2(0), activation='relu', name="layer3")(layer2)
+
+
+predict_vector = concatenate([mf_vector, layer3])
+
+# Final prediction layer
+prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(predict_vector)
+
+
+model = Model(inputs=[user_input, item_input],
+              outputs=[prediction])
+
+model.summary()
+
+# 为每个输入添加1个隐藏层
+# hid_1 = Dense(128, activation='softmax')(input1)
+# hid_1_2 = Dense(128, activation='softmax')(hid_1)
+# hid_1_3 = Dense(128, activation='softmax')(hid_1_2)
+#
+# hid_2 = Dense(64, activation='softmax')(input2)
+# hid_2_2 = Dense(64, activation='softmax')(hid_2)
+# hid_2_3 = Dense(64, activation='softmax')(hid_2_2)
+#
+# hid_3 = Dense(32, activation='softmax')(input3)
+# hid_3_2 = Dense(32, activation='softmax')(hid_3)
+# hid_3_3 = Dense(32, activation='softmax')(hid_3_2)
+
+
+# 合并3个隐藏层
+# hid_all = keras.layers.concatenate([hid_1_3, hid_2_3, hid_3_3])
+
+
+# 在合并的基础上再加3个隐藏层
+# hid_all_1 = Dense(128, activation='softmax')(hid_all)
+# hid_all_2 = Dense(64, activation='softmax')(hid_all_1)
+# hid_all_3 = Dense(32, activation='softmax')(hid_all_2)
+
+# hid_all_3_1_1 = Dense(32, activation='sigmoid')(hid_all_3)
+# hid_all_3_1_2 = Dense(16, activation='sigmoid')(hid_all_3_1_1)
+#
+# hid_all_3_2_1 = Dense(32, activation='sigmoid')(hid_all_3)
+# hid_all_3_2_2 = Dense(16, activation='sigmoid')(hid_all_3_2_1)
+
+# 定义2个输出层，一个输出分数cat_score，一个输出期末测试结果cat_final_result
+# output1 = Dense(1, activation='sigmoid', name="output1")(hid_all_3)
+# output2 = Dense(4, activation='softmax', name="output2")(hid_all_3_2_2)
+
+
+# 定义深度学习模型的输入和输出
+# model = Model(inputs=[input1, input2, input3], outputs=[output1])
+# model = Model(inputs=[input1, input2, input3], outputs=[output1, output2])
+
+model.summary()
+
+model.compile(loss={'output1': 'binary_crossentropy'},
+              optimizer=RMSprop(lr=0.001, rho=0.9, epsilon=1e-06),
+              metrics=['accuracy'])
+# loss_weights = [1, 1],
+# loss={'output1': 'mean_absolute_error', 'output2': 'categorical_crossentropy'},
+# train_1 = split_1[:150000]
+# train_2 = split_2[:150000]
+# train_3 = split_3[:150000]
+#
+# label_1 = split_4[:150000, :1]
+# label_2 = split_4[:150000, 2:]
+
+history = model.fit({'input1': train_data_1, 'input2': train_data_2, 'input3': train_data_3},
+                    {'output1': train_label_1},
+                    batch_size=4096,
+                    epochs=2000,
+                    validation_data=([val_data_1, val_data_2, val_data_3], [val_label_1]))
+
+history_dict = history.history
+print(history_dict.keys())
+print(history_dict)
 
 
 
-
-
+# {'output1': train_label_1, 'output2': train_label_2},
 # merge_final = np.around(merge_1_14_float32, decimals=3)
 
 # split_1 = merge_1_14[:, :42]
