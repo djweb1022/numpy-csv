@@ -586,6 +586,8 @@ mf_cat_id_assessment = Flatten()(MF_Embedding_cat_id_assessment)
 
 mf_vector = multiply([mf_cat_id_student, mf_cat_id_assessment, mf_cat_imd_band, mf_cat_region])  # element-wise multiply
 
+
+
 # MLP part
 mlp_cat_id_student = Flatten()(MLP_Embedding_cat_id_student)
 # mlp_cat_imd_band = Flatten()(MLP_Embedding_cat_imd_band)
