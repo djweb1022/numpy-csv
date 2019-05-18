@@ -392,10 +392,13 @@ list_score = list(total_merge['score'])
 num_score = []
 
 for score in list_score:
-    new_score = score / 100
-    num_score.append(new_score)
+    if score >= 60:
+        num_score.append(1)
+    else:
+        num_score.append(0)
 
 cat_score = np.array(num_score)
+cat_score = cat_score.reshape((cat_score.shape[0], 1))
 
 """
 用户ID
@@ -481,7 +484,7 @@ cat_activity_type = np.array(lscat_activity_type).T
 
 """
 
-merge_final = np.hstack([cat_id_student, cat_imd_band, cat_region, cat_id_assessment, cat_final_result])
+merge_final = np.hstack([cat_id_student, cat_imd_band, cat_region, cat_id_assessment, cat_score])
 
 # 将数组中所有元素转化为float32类型
 # merge_final = merge_final.astype('float32')
@@ -611,13 +614,13 @@ model = Model(inputs=[input_cat_id_student, input_cat_id_assessment, input_cat_i
 model.summary()
 
 model.compile(loss={'prediction': 'binary_crossentropy'},
-              optimizer=RMSprop(lr=0.005, rho=0.9, epsilon=1e-06),
+              optimizer=Adam(),
               metrics=['accuracy'])
 
 history = model.fit([train_cat_id_student, train_cat_id_assessment, train_cat_imd_band, train_cat_region],
                     [train_label],
                     batch_size=4096,
-                    epochs=20,
+                    epochs=200,
                     validation_data=([val_cat_id_student, val_cat_id_assessment, val_cat_imd_band, val_cat_region],
                                      [val_label]))
 
