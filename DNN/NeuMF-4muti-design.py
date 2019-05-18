@@ -392,7 +392,7 @@ list_score = list(total_merge['score'])
 num_score = []
 
 for score in list_score:
-    if score >= 60:
+    if score >= 90:
         num_score.append(1)
     else:
         num_score.append(0)
@@ -405,16 +405,54 @@ cat_score = cat_score.reshape((cat_score.shape[0], 1))
 
 """
 list_id_student = list(total_merge['id_student'])
-cat_id_student = np.array(list_id_student)
-cat_id_student = cat_id_student.reshape(cat_id_student.shape[0], 1)
+list_id_student_set = list(set(list_id_student))
+
+# 把ID转化为从1开始的连续值
+list_id_student_con = []
+for num_id in list_id_student:
+    get_set = list_id_student_set.index(num_id)+1
+    list_id_student_con.append(get_set)
+
+list_id_student_con = np.array(list_id_student_con)
+max_id_student = list_id_student_con.max()
+
+cat_id_student = list_id_student_con.reshape((list_id_student_con.shape[0], 1))
+
+# index_id_student = []
+# element_id_student = []
+#
+# for i, element in enumerate(list_id_student):
+#     if element not in element_id_student:
+#         index_id_student.append(i)
+#         element_id_student.append(element)
+#
+# test1 = np.array(index_id_student)
+# test1 = test1.reshape((test1.shape[0]), 1)
+# test2 = np.array(element_id_student)
+# test2 = test2.reshape((test2.shape[0]), 1)
+#
+# test_all = np.hstack([test1, test2])
+#
+# cat_id_student = np.array(list_id_student)
+# cat_id_student = cat_id_student.reshape(cat_id_student.shape[0], 1)
 
 """
 测试ID
 
 """
 list_id_assessment = list(total_merge['id_assessment'])
-cat_id_assessment = np.array(list_id_assessment)
-cat_id_assessment = cat_id_assessment.reshape(cat_id_assessment.shape[0], 1)
+list_id_assessment_set = list(set(list_id_assessment))
+
+# 把ID转化为从1开始的连续值
+list_id_assessment_con = []
+for num_id in list_id_assessment:
+    get_set = list_id_assessment_set.index(num_id)+1
+    list_id_assessment_con.append(get_set)
+
+list_id_assessment_con = np.array(list_id_assessment_con)
+max_id_assessment = list_id_assessment_con.max()
+
+cat_id_assessment = list_id_assessment_con.reshape(list_id_assessment_con.shape[0], 1)
 
 """列出统计的12种活动类型"""
 list_activity_type = ['forumng', 'oucontent', 'subpage', 'homepage', 'quiz', 'resource', 'url', 'ouwiki',
@@ -532,10 +570,10 @@ test_cat_region = merge_final[column_2:, 2:3]
 test_cat_id_assessment = merge_final[column_2:, 3:4]
 test_label = merge_final[column_2:, 4:]
 
-max_cat_id_student = merge_final[:, :1].max()
+# max_cat_id_student = merge_final[:, :1].max()
 max_cat_imd_band = merge_final[:, 1:2].max()
 max_cat_region = merge_final[:, 2:3].max()
-max_cat_id_assessment = merge_final[:, 3:4].max()
+# max_cat_id_assessment = merge_final[:, 3:4].max()
 
 # 定义三个输入，分别代表用户、交互、平台情境
 input_cat_id_student = Input(shape=(1,), name="input_cat_id_student")
@@ -552,7 +590,7 @@ def init_normal(shape, name=None):
 l2_regularizer = 0.001
 
 # Embedding layer
-MF_Embedding_cat_id_student = Embedding(input_dim=max_cat_id_student + 1, output_dim=10,
+MF_Embedding_cat_id_student = Embedding(input_dim=max_id_student + 1, output_dim=10,
                                         name='MF_Embedding_cat_id_student', embeddings_regularizer=l2(l2_regularizer),
                                         input_length=1)(input_cat_id_student)
 MF_Embedding_cat_imd_band = Embedding(input_dim=max_cat_imd_band + 1, output_dim=10,
@@ -561,12 +599,12 @@ MF_Embedding_cat_imd_band = Embedding(input_dim=max_cat_imd_band + 1, output_dim
 MF_Embedding_cat_region = Embedding(input_dim=max_cat_region + 1, output_dim=10,
                                     name='MF_Embedding_cat_region', embeddings_regularizer=l2(l2_regularizer),
                                     input_length=1)(input_cat_region)
-MF_Embedding_cat_id_assessment = Embedding(input_dim=max_cat_id_assessment + 1, output_dim=10,
+MF_Embedding_cat_id_assessment = Embedding(input_dim=max_id_assessment + 1, output_dim=10,
                                            name='MF_Embedding_cat_id_assessment',
                                            embeddings_regularizer=l2(l2_regularizer),
                                            input_length=1)(input_cat_id_assessment)
 
-MLP_Embedding_cat_id_student = Embedding(input_dim=max_cat_id_student + 1, output_dim=5,
+MLP_Embedding_cat_id_student = Embedding(input_dim=max_id_student + 1, output_dim=5,
                                          name="MLP_Embedding_cat_id_student", embeddings_regularizer=l2(l2_regularizer),
                                          input_length=1)(input_cat_id_student)
 # MLP_Embedding_cat_imd_band = Embedding(input_dim=max_cat_imd_band + 1, output_dim=5,
@@ -575,7 +613,7 @@ MLP_Embedding_cat_id_student = Embedding(input_dim=max_cat_id_student + 1, outpu
 # MLP_Embedding_cat_region = Embedding(input_dim=max_cat_region + 1, output_dim=5,
 #                                      name="MLP_Embedding_cat_region", embeddings_regularizer=l2(l2_regularizer),
 #                                      input_length=1)(input_cat_region)
-MLP_Embedding_cat_id_assessment = Embedding(input_dim=max_cat_id_assessment + 1, output_dim=5,
+MLP_Embedding_cat_id_assessment = Embedding(input_dim=max_id_assessment + 1, output_dim=5,
                                             name="MLP_Embedding_cat_id_assessment",
                                             embeddings_regularizer=l2(l2_regularizer),
                                             input_length=1)(input_cat_id_assessment)
@@ -599,9 +637,11 @@ mlp_vector = concatenate([mf_cat_id_student, mf_cat_id_assessment, mf_cat_imd_ba
 
 layers = [16, 8, 4]
 
-layer1 = Dense(32, kernel_regularizer=l2(0), activation='relu', name="layer1")(mlp_vector)
-layer2 = Dense(16, kernel_regularizer=l2(0), activation='relu', name="layer2")(layer1)
-layer3 = Dense(8, kernel_regularizer=l2(0), activation='relu', name="layer3")(layer2)
+function_a = 'elu'
+
+layer1 = Dense(32, kernel_regularizer=l2(0), activation=function_a, name="layer1")(mlp_vector)
+layer2 = Dense(16, kernel_regularizer=l2(0), activation=function_a, name="layer2")(layer1)
+layer3 = Dense(8, kernel_regularizer=l2(0), activation=function_a, name="layer3")(layer2)
 
 predict_vector = concatenate([mf_vector, layer3])
 

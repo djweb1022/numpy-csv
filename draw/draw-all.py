@@ -21,7 +21,11 @@ def relu(x):
 
 
 def prelu(x):
-    return np.where(x < 0, 0.5 * x, x)
+    return np.where(x < 0, 0.1 * x, x)
+
+
+def elu(x):
+    return np.where(x < 0, np.exp(x)-1, x)
 
 
 def plot_sigmoid():
@@ -42,11 +46,11 @@ def plot_sigmoid():
     plt.ylim([-0.02, 1.02])
     ax.set_xticks([-10, -5, 0, 5, 10])
     ax.set_yticks([0.2,0.4, 0.6, 0.8, 1])
-    ax.tick_params(labelsize=15)
+    ax.tick_params(labelsize=18)
     ax.xaxis.set_minor_locator(MultipleLocator(1))
     ax.yaxis.set_minor_locator(MultipleLocator(0.05))
     plt.tight_layout()
-    plt.legend(loc=2, fontsize=15)
+    plt.legend(loc=2, fontsize=18)
     plt.savefig("sigmoid.png")
     plt.show()
 
@@ -67,11 +71,11 @@ def plot_tanh():
     plt.ylim([-1.02, 1.02])
     ax.set_xticks([-10, -5, 5, 10])
     ax.set_yticks([-1.0, -0.5, 0.5, 1.0])
-    ax.tick_params(labelsize=15)
+    ax.tick_params(labelsize=18)
     ax.xaxis.set_minor_locator(MultipleLocator(1))
     ax.yaxis.set_minor_locator(MultipleLocator(0.1))
     plt.tight_layout()
-    plt.legend(loc=2, fontsize=15)
+    plt.legend(loc=2, fontsize=18)
     plt.savefig("tanh.png")
     plt.show()
 
@@ -94,17 +98,17 @@ def plot_relu():
     plt.ylim([0, 10.02])
     ax.set_xticks([-10, -5, 0, 5, 10])
     ax.set_yticks([2, 4, 6, 8, 10])
-    ax.tick_params(labelsize=15)
+    ax.tick_params(labelsize=18)
     ax.xaxis.set_minor_locator(MultipleLocator(1))
     ax.yaxis.set_minor_locator(MultipleLocator(1))
     plt.tight_layout()
-    plt.legend(loc=2, fontsize=15)
+    plt.legend(loc=2, fontsize=18)
     plt.savefig("relu.png")
     plt.show()
 
 
 def plot_prelu():
-    x = np.arange(-10, 10, 0.1)
+    x = np.linspace(-10.5, 10.5, 500)
     y = prelu(x)
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -114,16 +118,48 @@ def plot_prelu():
     # ax.spines['left'].set_color('none')
     ax.spines['left'].set_position(('data', 0))
     ax.spines['bottom'].set_position(('data', 0))
-    ax.plot(x, y)
-    plt.xticks([])
-    plt.yticks([])
+    ax.plot(x, y, label='P-ReLU', linestyle="-", color="mediumvioletred")
+    plt.xlim([-10.5, 10.5])
+    plt.ylim([-1.2, 10.02])
+    ax.set_xticks([-10, -5, 5, 10])
+    ax.set_yticks([-1, 2, 4, 6, 8, 10])
+    ax.tick_params(labelsize=18)
+    ax.xaxis.set_minor_locator(MultipleLocator(1))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.5))
     plt.tight_layout()
-    # plt.savefig("prelu.png")
+    plt.legend(loc=2, fontsize=18)
+    plt.savefig("prelu.png")
+    plt.show()
+
+
+def plot_elu():
+    x = np.linspace(-10.5, 10.5, 500)
+    y = elu(x)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.spines['top'].set_color('none')
+    ax.spines['right'].set_color('none')
+    # ax.spines['bottom'].set_color('none')
+    # ax.spines['left'].set_color('none')
+    ax.spines['left'].set_position(('data', 0))
+    ax.spines['bottom'].set_position(('data', 0))
+    ax.plot(x, y, label='ELU', linestyle="-" )
+    plt.xlim([-10.5, 10.5])
+    plt.ylim([-1.2, 10.02])
+    ax.set_xticks([-10, -5, 5, 10])
+    ax.set_yticks([-1, 2, 4, 6, 8, 10])
+    ax.tick_params(labelsize=18)
+    ax.xaxis.set_minor_locator(MultipleLocator(1))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.5))
+    plt.tight_layout()
+    plt.legend(loc=2, fontsize=18)
+    plt.savefig("elu.png")
     plt.show()
 
 
 if __name__ == "__main__":
-    plot_sigmoid()
-    plot_tanh()
-    plot_relu()
-    # plot_prelu()
+    # plot_sigmoid()
+    # plot_tanh()
+    # plot_relu()
+    plot_prelu()
+    plot_elu()
