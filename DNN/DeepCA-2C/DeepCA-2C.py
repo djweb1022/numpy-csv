@@ -7,7 +7,7 @@ import math
 import numpy as np
 from keras.utils import to_categorical
 
-total_merge = pd.read_csv('../totalmerge/total_merge.csv')
+total_merge = pd.read_csv('../../totalmerge/total_merge.csv')
 
 """
 
@@ -584,149 +584,237 @@ test_label = merge_final[column_2:, 4:]
 # max_cat_id_student = merge_final[:, :1].max()
 max_cat_imd_band = merge_final[:, 1:2].max()
 max_cat_region = merge_final[:, 2:3].max()
-# max_cat_id_assessment = merge_final[:, 3:4].max()
-
-# 定义三个输入，分别代表用户、交互、平台情境
-input_cat_id_student = Input(shape=(1,), name="input_cat_id_student")
-input_cat_imd_band = Input(shape=(1,), name="input_cat_imd_band")
-input_cat_region = Input(shape=(1,), name="input_cat_region")
-
-input_cat_id_assessment = Input(shape=(1,), name="input_cat_id_assessment")
 
 
-def init_normal(shape, name=None):
-    return initializers.RandomNormal(mean=0.0, stddev=0.05, seed=None)
+def deepca_2c(train_1, dim_1, train_2, dim_2, train_label, val_1, val_2, val_label, test_1, test_2, test_label,
+              output_dim=10, l2_regularizer=0.01, function_a='elu', batch_size=1024, epochs=100):
+    # 定义三个输入，分别代表用户、交互、平台情境
+    input_1 = Input(shape=(1,), name="input_1")
+    input_2 = Input(shape=(1,), name="input_2")
+
+    input_label = Input(shape=(1,), name="input_label")
+
+    # Embedding layer
+
+    embedding_input_1 = Embedding(input_dim=dim_1 + 1, output_dim=output_dim,
+                                  name='embedding_input_1', embeddings_regularizer=l2(l2_regularizer),
+                                  input_length=1)(input_1)
+    embedding_input_2 = Embedding(input_dim=dim_2 + 1, output_dim=output_dim,
+                                  name='embedding_input_2', embeddings_regularizer=l2(l2_regularizer),
+                                  input_length=1)(input_2)
+
+    # MF part
+    flatten_input_1 = Flatten()(embedding_input_1)
+    flatten_input_2 = Flatten()(embedding_input_2)
+
+    mul_vector = multiply([flatten_input_1, flatten_input_2])  # element-wise multiply
+    con_vector = concatenate([flatten_input_1, flatten_input_2])
+
+    layer1 = Dense(32, kernel_regularizer=l2(0), activation=function_a, name="layer1")(con_vector)
+    layer2 = Dense(16, kernel_regularizer=l2(0), activation=function_a, name="layer2")(layer1)
+    layer3 = Dense(8, kernel_regularizer=l2(0), activation=function_a, name="layer3")(layer2)
+
+    predict_vector = concatenate([mul_vector, layer3])
+
+    # Final prediction layer
+    prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(predict_vector)
+
+    model = Model(inputs=[input_1, input_2],
+                  outputs=[prediction])
+
+    model.summary()
+
+    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
+        threshold = math_ops.cast(threshold, y_pred.dtype)
+        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
+        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
+
+    model.compile(loss={'prediction': 'binary_crossentropy'},
+                  optimizer=Adam(),
+                  metrics=[binary_accuracy])
+
+    history = model.fit([train_1, train_2],
+                        [train_label],
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        validation_data=([val_1, val_2],
+                                         [val_label]))
+
+    history_dict = history.history
+    print(history_dict.keys())
+    print(history_dict)
+
+    import matplotlib.pyplot as plt
+
+    acc_str = 'binary_accuracy'
+    val_acc_str = 'val_' + 'binary_accuracy'
+
+    acc = history.history[acc_str]
+    val_acc = history.history[val_acc_str]
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+
+    epochs = range(1, len(acc) + 1)
+
+    # "bo" is for "blue dot"
+    plt.plot(epochs, loss, 'bo', label='Training loss')
+    # b is for "solid blue line"
+    plt.plot(epochs, val_loss, 'b', label='Validation loss')
+    plt.title('Training and validation loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    plt.clf()  # clear figure
+    acc_values = history_dict[acc_str]
+    val_acc_values = history_dict[val_acc_str]
+
+    plt.plot(epochs, acc, 'bo', label='Training acc')
+    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.title('Training and validation accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    results = model.evaluate([test_1, test_2],
+                             [test_label])
+    print(results)
 
 
-l2_regularizer = 0.01
+def deepca_3c(train_1, dim_1, train_2, dim_2, train_3, dim_3, train_label, val_1, val_2, val_3, val_label, test_1,
+              test_2, test_3, test_label, output_dim=10, l2_regularizer=0.01, function_a='elu', batch_size=1024, epochs=100):
+    # 定义三个输入，分别代表用户、交互、平台情境
+    input_1 = Input(shape=(1,), name="input_1")
+    input_2 = Input(shape=(1,), name="input_2")
+    input_3 = Input(shape=(1,), name="input_3")
 
-# Embedding layer
-MF_Embedding_cat_id_student = Embedding(input_dim=max_id_student + 1, output_dim=10,
-                                        name='MF_Embedding_cat_id_student', embeddings_regularizer=l2(l2_regularizer),
-                                        input_length=1)(input_cat_id_student)
-MF_Embedding_cat_imd_band = Embedding(input_dim=max_cat_imd_band + 1, output_dim=10,
-                                      name='MF_Embedding_cat_imd_band', embeddings_regularizer=l2(l2_regularizer),
-                                      input_length=1)(input_cat_imd_band)
-MF_Embedding_cat_region = Embedding(input_dim=max_cat_region + 1, output_dim=10,
-                                    name='MF_Embedding_cat_region', embeddings_regularizer=l2(l2_regularizer),
-                                    input_length=1)(input_cat_region)
-MF_Embedding_cat_id_assessment = Embedding(input_dim=max_id_assessment + 1, output_dim=10,
-                                           name='MF_Embedding_cat_id_assessment',
-                                           embeddings_regularizer=l2(l2_regularizer),
-                                           input_length=1)(input_cat_id_assessment)
+    input_label = Input(shape=(1,), name="input_label")
 
-MLP_Embedding_cat_id_student = Embedding(input_dim=max_id_student + 1, output_dim=5,
-                                         name="MLP_Embedding_cat_id_student", embeddings_regularizer=l2(l2_regularizer),
-                                         input_length=1)(input_cat_id_student)
-# MLP_Embedding_cat_imd_band = Embedding(input_dim=max_cat_imd_band + 1, output_dim=5,
-#                                        name="MLP_Embedding_cat_imd_band", embeddings_regularizer=l2(l2_regularizer),
-#                                        input_length=1)(input_cat_imd_band)
-# MLP_Embedding_cat_region = Embedding(input_dim=max_cat_region + 1, output_dim=5,
-#                                      name="MLP_Embedding_cat_region", embeddings_regularizer=l2(l2_regularizer),
-#                                      input_length=1)(input_cat_region)
-MLP_Embedding_cat_id_assessment = Embedding(input_dim=max_id_assessment + 1, output_dim=5,
-                                            name="MLP_Embedding_cat_id_assessment",
-                                            embeddings_regularizer=l2(l2_regularizer),
-                                            input_length=1)(input_cat_id_assessment)
+    # Embedding layer
 
-# MF part
-mf_cat_id_student = Flatten()(MF_Embedding_cat_id_student)
-mf_cat_imd_band = Flatten()(MF_Embedding_cat_imd_band)
-mf_cat_region = Flatten()(MF_Embedding_cat_region)
-mf_cat_id_assessment = Flatten()(MF_Embedding_cat_id_assessment)
-
-mf_vector = multiply([mf_cat_id_student, mf_cat_id_assessment, mf_cat_imd_band, mf_cat_region])  # element-wise multiply
-
-# MLP part
-mlp_cat_id_student = Flatten()(MLP_Embedding_cat_id_student)
-# mlp_cat_imd_band = Flatten()(MLP_Embedding_cat_imd_band)
-# mlp_cat_region = Flatten()(MLP_Embedding_cat_region)
-mlp_cat_id_assessment = Flatten()(MLP_Embedding_cat_id_assessment)
-
-mlp_vector = concatenate([mf_cat_id_student, mf_cat_id_assessment, mf_cat_imd_band, mf_cat_region])
-
-layers = [16, 8, 4]
-
-function_a = 'elu'
-
-layer1 = Dense(32, kernel_regularizer=l2(0), activation=function_a, name="layer1")(mlp_vector)
-layer2 = Dense(16, kernel_regularizer=l2(0), activation=function_a, name="layer2")(layer1)
-layer3 = Dense(8, kernel_regularizer=l2(0), activation=function_a, name="layer3")(layer2)
-
-predict_vector = concatenate([mf_vector, layer3])
-
-# Final prediction layer
-prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(predict_vector)
-
-model = Model(inputs=[input_cat_id_student, input_cat_id_assessment, input_cat_imd_band, input_cat_region],
-              outputs=[prediction])
-
-model.summary()
+    embedding_input_1 = Embedding(input_dim=dim_1 + 1, output_dim=output_dim,
+                                  name='embedding_input_1', embeddings_regularizer=l2(l2_regularizer),
+                                  input_length=1)(input_1)
+    embedding_input_2 = Embedding(input_dim=dim_2 + 1, output_dim=output_dim,
+                                  name='embedding_input_2', embeddings_regularizer=l2(l2_regularizer),
+                                  input_length=1)(input_2)
+    embedding_input_3 = Embedding(input_dim=dim_3 + 1, output_dim=output_dim,
+                                  name='embedding_input_3', embeddings_regularizer=l2(l2_regularizer),
+                                  input_length=1)(input_3)
 
 
-def binary_accuracy(y_true, y_pred, threshold=(limit_score/100)):
-    threshold = math_ops.cast(threshold, y_pred.dtype)
-    y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
-    return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
+    flatten_input_1 = Flatten()(embedding_input_1)
+    flatten_input_2 = Flatten()(embedding_input_2)
+    flatten_input_3 = Flatten()(embedding_input_3)
+
+    mul_vector = multiply([flatten_input_1, flatten_input_2, flatten_input_3])  # element-wise multiply
+    con_vector = concatenate([flatten_input_1, flatten_input_2, flatten_input_3])
+
+    layer1 = Dense(32, kernel_regularizer=l2(0), activation=function_a, name="layer1")(con_vector)
+    layer2 = Dense(16, kernel_regularizer=l2(0), activation=function_a, name="layer2")(layer1)
+    layer3 = Dense(8, kernel_regularizer=l2(0), activation=function_a, name="layer3")(layer2)
+
+    predict_vector = concatenate([mul_vector, layer3])
+
+    # Final prediction layer
+    prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(predict_vector)
+
+    model = Model(inputs=[input_1, input_2, input_3],
+                  outputs=[prediction])
+
+    model.summary()
+
+    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
+        threshold = math_ops.cast(threshold, y_pred.dtype)
+        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
+        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
+
+    model.compile(loss={'prediction': 'binary_crossentropy'},
+                  optimizer=Adam(),
+                  metrics=[binary_accuracy])
+
+    history = model.fit([train_1, train_2, train_3],
+                        [train_label],
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        validation_data=([val_1, val_2, val_3],
+                                         [val_label]))
+
+    history_dict = history.history
+    print(history_dict.keys())
+    print(history_dict)
+
+    import matplotlib.pyplot as plt
+
+    acc_str = 'binary_accuracy'
+    val_acc_str = 'val_' + 'binary_accuracy'
+
+    acc = history.history[acc_str]
+    val_acc = history.history[val_acc_str]
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+
+    epochs = range(1, len(acc) + 1)
+
+    # "bo" is for "blue dot"
+    plt.plot(epochs, loss, 'bo', label='Training loss')
+    # b is for "solid blue line"
+    plt.plot(epochs, val_loss, 'b', label='Validation loss')
+    plt.title('Training and validation loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    plt.clf()  # clear figure
+    acc_values = history_dict[acc_str]
+    val_acc_values = history_dict[val_acc_str]
+
+    plt.plot(epochs, acc, 'bo', label='Training acc')
+    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.title('Training and validation accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    results = model.evaluate([test_1, test_2, test_3],
+                             [test_label])
+    print(results)
 
 
-model.compile(loss={'prediction': 'binary_crossentropy'},
-              optimizer=Adam(),
-              metrics=[binary_accuracy])
+if __name__ == "__main__":
+    deepca_2c(train_1=train_cat_id_student,
+              dim_1=max_id_student,
+              train_2=train_cat_id_assessment,
+              dim_2=max_id_assessment,
+              train_label=train_label,
+              val_1=val_cat_id_student,
+              val_2=val_cat_id_assessment,
+              val_label=val_label,
+              test_1=test_cat_id_student,
+              test_2=test_cat_id_assessment,
+              test_label=test_label,
+              )
 
-history = model.fit([train_cat_id_student, train_cat_id_assessment, train_cat_imd_band, train_cat_region],
-                    [train_label],
-                    batch_size=4096,
-                    epochs=200,
-                    validation_data=([val_cat_id_student, val_cat_id_assessment, val_cat_imd_band, val_cat_region],
-                                     [val_label]))
+    deepca_3c(train_1=train_cat_id_student, dim_1=max_id_student,
+              train_2=train_cat_id_assessment, dim_2=max_id_assessment,
+              train_3=train_cat_imd_band, dim_3=max_cat_imd_band,
+              train_label=train_label,
 
-history_dict = history.history
-print(history_dict.keys())
-print(history_dict)
+              val_1=val_cat_id_student,
+              val_2=val_cat_id_assessment,
+              val_3=val_cat_imd_band,
+              val_label=val_label,
 
-import matplotlib.pyplot as plt
-
-
-acc_str = 'binary_accuracy'
-val_acc_str = 'val_' + 'binary_accuracy'
-
-acc = history.history[acc_str]
-val_acc = history.history[val_acc_str]
-loss = history.history['loss']
-val_loss = history.history['val_loss']
-
-epochs = range(1, len(acc) + 1)
-
-# "bo" is for "blue dot"
-plt.plot(epochs, loss, 'bo', label='Training loss')
-# b is for "solid blue line"
-plt.plot(epochs, val_loss, 'b', label='Validation loss')
-plt.title('Training and validation loss')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.legend()
-
-plt.show()
-
-# In[38]:
-
-
-plt.clf()  # clear figure
-acc_values = history_dict[acc_str]
-val_acc_values = history_dict[val_acc_str]
-
-plt.plot(epochs, acc, 'bo', label='Training acc')
-plt.plot(epochs, val_acc, 'b', label='Validation acc')
-plt.title('Training and validation accuracy')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.legend()
-
-plt.show()
-
-results = model.evaluate([test_cat_id_student, test_cat_id_assessment, test_cat_imd_band, test_cat_region],
-                         [test_label])
-print(results)
-
-# 171503
+              test_1=test_cat_id_student,
+              test_2=test_cat_id_assessment,
+              test_3=test_cat_imd_band,
+              test_label=test_label,
+              )

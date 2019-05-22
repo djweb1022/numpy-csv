@@ -388,14 +388,11 @@ cat_clickavg = np.array(cat_clickavg)
 范围1-100
 
 """
-
-limit_score = 90
-
 list_score = list(total_merge['score'])
 num_score = []
 
 for score in list_score:
-    if score >= limit_score:
+    if score >= 90:
         num_score.append(1)
     else:
         num_score.append(0)
@@ -413,7 +410,7 @@ list_id_student_set = list(set(list_id_student))
 # 把ID转化为从1开始的连续值
 list_id_student_con = []
 for num_id in list_id_student:
-    get_set = list_id_student_set.index(num_id) + 1
+    get_set = list_id_student_set.index(num_id)+1
     list_id_student_con.append(get_set)
 
 list_id_student_con = np.array(list_id_student_con)
@@ -449,7 +446,7 @@ list_id_assessment_set = list(set(list_id_assessment))
 # 把ID转化为从1开始的连续值
 list_id_assessment_con = []
 for num_id in list_id_assessment:
-    get_set = list_id_assessment_set.index(num_id) + 1
+    get_set = list_id_assessment_set.index(num_id)+1
     list_id_assessment_con.append(get_set)
 
 list_id_assessment_con = np.array(list_id_assessment_con)
@@ -542,14 +539,6 @@ from keras import regularizers
 from keras import initializers
 from keras.regularizers import l1, l2, l1_l2
 from keras.layers.merge import multiply, concatenate
-from keras import metrics
-import keras.backend as K
-import keras_metrics as km
-import tensorflow as tf
-from tensorflow.python.ops import math_ops
-from keras import losses
-
-from math import log
 
 """
 
@@ -598,7 +587,7 @@ def init_normal(shape, name=None):
     return initializers.RandomNormal(mean=0.0, stddev=0.05, seed=None)
 
 
-l2_regularizer = 0.01
+l2_regularizer = 0.001
 
 # Embedding layer
 MF_Embedding_cat_id_student = Embedding(input_dim=max_id_student + 1, output_dim=10,
@@ -635,7 +624,9 @@ mf_cat_imd_band = Flatten()(MF_Embedding_cat_imd_band)
 mf_cat_region = Flatten()(MF_Embedding_cat_region)
 mf_cat_id_assessment = Flatten()(MF_Embedding_cat_id_assessment)
 
-mf_vector = multiply([mf_cat_id_student, mf_cat_id_assessment, mf_cat_imd_band, mf_cat_region])  # element-wise multiply
+
+user_item_vector = multiply([mf_cat_id_student, mf_cat_id_assessment])
+mf_vector = multiply([mf_cat_imd_band, mf_cat_region])  # element-wise multiply
 
 # MLP part
 mlp_cat_id_student = Flatten()(MLP_Embedding_cat_id_student)
@@ -653,7 +644,7 @@ layer1 = Dense(32, kernel_regularizer=l2(0), activation=function_a, name="layer1
 layer2 = Dense(16, kernel_regularizer=l2(0), activation=function_a, name="layer2")(layer1)
 layer3 = Dense(8, kernel_regularizer=l2(0), activation=function_a, name="layer3")(layer2)
 
-predict_vector = concatenate([mf_vector, layer3])
+predict_vector = concatenate([user_item_vector, mf_vector, layer3])
 
 # Final prediction layer
 prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(predict_vector)
@@ -663,16 +654,9 @@ model = Model(inputs=[input_cat_id_student, input_cat_id_assessment, input_cat_i
 
 model.summary()
 
-
-def binary_accuracy(y_true, y_pred, threshold=(limit_score/100)):
-    threshold = math_ops.cast(threshold, y_pred.dtype)
-    y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
-    return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
-
-
 model.compile(loss={'prediction': 'binary_crossentropy'},
               optimizer=Adam(),
-              metrics=[binary_accuracy])
+              metrics=['accuracy'])
 
 history = model.fit([train_cat_id_student, train_cat_id_assessment, train_cat_imd_band, train_cat_region],
                     [train_label],
@@ -687,12 +671,8 @@ print(history_dict)
 
 import matplotlib.pyplot as plt
 
-
-acc_str = 'binary_accuracy'
-val_acc_str = 'val_' + 'binary_accuracy'
-
-acc = history.history[acc_str]
-val_acc = history.history[val_acc_str]
+acc = history.history['acc']
+val_acc = history.history['val_acc']
 loss = history.history['loss']
 val_loss = history.history['val_loss']
 
@@ -713,8 +693,8 @@ plt.show()
 
 
 plt.clf()  # clear figure
-acc_values = history_dict[acc_str]
-val_acc_values = history_dict[val_acc_str]
+acc_values = history_dict['acc']
+val_acc_values = history_dict['val_acc']
 
 plt.plot(epochs, acc, 'bo', label='Training acc')
 plt.plot(epochs, val_acc, 'b', label='Validation acc')

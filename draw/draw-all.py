@@ -6,7 +6,10 @@ from matplotlib import pyplot as plt
 import numpy as np
 import mpl_toolkits.axisartist as axisartist
 from matplotlib.ticker import MultipleLocator, FuncFormatter
+import matplotlib.font_manager as fm
 
+# my_font = fm.FontProperties(fname=u'C:/Windows/Fonts/times.ttf')
+my_font = fm.FontProperties(fname='C:/Windows/Fonts/msyh.ttc', size=18)
 
 def sigmoid(x):
     return 1. / (1 + np.exp(-x))
@@ -143,7 +146,7 @@ def plot_elu():
     # ax.spines['left'].set_color('none')
     ax.spines['left'].set_position(('data', 0))
     ax.spines['bottom'].set_position(('data', 0))
-    ax.plot(x, y, label='ELU', linestyle="-" )
+    ax.plot(x, y, label="ELU", linestyle="-")
     plt.xlim([-10.5, 10.5])
     plt.ylim([-1.2, 10.02])
     ax.set_xticks([-10, -5, 5, 10])
@@ -152,7 +155,8 @@ def plot_elu():
     ax.xaxis.set_minor_locator(MultipleLocator(1))
     ax.yaxis.set_minor_locator(MultipleLocator(0.5))
     plt.tight_layout()
-    plt.legend(loc=2, fontsize=18)
+    plt.legend(loc=2, fontsize=18, prop=my_font)
+    # plt.grid(True)
     plt.savefig("elu.png")
     plt.show()
 
@@ -161,5 +165,5 @@ if __name__ == "__main__":
     # plot_sigmoid()
     # plot_tanh()
     # plot_relu()
-    plot_prelu()
+    # plot_prelu()
     plot_elu()
