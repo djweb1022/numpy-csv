@@ -537,7 +537,7 @@ import keras
 from keras.layers import Input, Dense
 from keras.models import Model
 from keras.optimizers import Adagrad, Adam, SGD, RMSprop
-from keras.layers import Embedding, Input, Dense, merge, Reshape, Flatten, Dropout
+from keras.layers import Embedding, Input, Dense, merge, Reshape, Flatten, Dropout, PReLU
 from keras import regularizers
 from keras import initializers
 from keras.regularizers import l1, l2, l1_l2
@@ -586,33 +586,248 @@ max_cat_imd_band = merge_final[:, 1:2].max()
 max_cat_region = merge_final[:, 2:3].max()
 
 
-def deepca_2c(train_1, dim_1, train_2, dim_2, train_label, val_1, val_2, val_label, test_1, test_2, test_label,
-              output_dim=10, l2_regularizer=0.01, function_a='elu', batch_size=1024, epochs=100):
+def only_gmf_2c(train_list, dim_list, val_list, test_list, label_list,
+                output_dim=10, em_reg=None, batch_size=2048, epochs=50, save_name='only_gmf_2c'):
     # 定义三个输入，分别代表用户、交互、平台情境
     input_1 = Input(shape=(1,), name="input_1")
     input_2 = Input(shape=(1,), name="input_2")
 
-    input_label = Input(shape=(1,), name="input_label")
+    # Embedding layer
+
+    embedding_input_1 = Embedding(input_dim=dim_list[0] + 1, output_dim=output_dim,
+                                  name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
+    embedding_input_2 = Embedding(input_dim=dim_list[1] + 1, output_dim=output_dim,
+                                  name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
+
+    flatten_input_1 = Flatten()(embedding_input_1)
+    flatten_input_2 = Flatten()(embedding_input_2)
+
+    mul_vector = multiply([flatten_input_1, flatten_input_2])  # element-wise multiply
+
+    # Final prediction layer
+    prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(mul_vector)
+
+    model = Model(inputs=[input_1, input_2],
+                  outputs=[prediction])
+
+    model.summary()
+
+    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
+        threshold = math_ops.cast(threshold, y_pred.dtype)
+        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
+        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
+
+    model.compile(loss={'prediction': 'binary_crossentropy'},
+                  optimizer=Adam(),
+                  metrics=[binary_accuracy])
+
+    history = model.fit(train_list,
+                        label_list[0],
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        validation_data=(val_list,
+                                         label_list[1]))
+
+    history_dict = history.history
+    print(history_dict.keys())
+    print(history_dict)
+
+    import matplotlib.pyplot as plt
+
+    acc_str = 'binary_accuracy'
+    val_acc_str = 'val_' + 'binary_accuracy'
+
+    acc = history.history[acc_str]
+    val_acc = history.history[val_acc_str]
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+
+    epochs = range(1, len(acc) + 1)
+    epochs_index = range(0, len(acc))
+
+    # "bo" is for "blue dot"
+    plt.plot(epochs, loss, 'bo', label='Training loss')
+    # b is for "solid blue line"
+    plt.plot(epochs, val_loss, 'b', label='Validation loss')
+    plt.title(save_name + 'Training and validation loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    plt.clf()  # clear figure
+    acc_values = history_dict[acc_str]
+    val_acc_values = history_dict[val_acc_str]
+
+    plt.plot(epochs, acc, 'bo', label='Training acc')
+    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.title(save_name + 'Training and validation accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    results = model.evaluate(test_list,
+                             label_list[2])
+
+    train_val_dict = {'train_acc': acc,
+                      'val_acc': val_acc,
+                      'train_loss': loss,
+                      'val_loss': val_loss,
+                      }
+
+    train_val_df = pd.DataFrame(train_val_dict, epochs_index)
+
+    test_dict = {'test_acc': [results[1]],
+                 'test_loss': [results[0]],
+                 }
+
+    test_df = pd.DataFrame(test_dict, [0])
+
+    all_df = pd.concat([train_val_df, test_df], axis=1)
+
+    all_df.to_csv(save_name + '.csv', index=False)
+
+    print(results)
+
+
+def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
+                output_dim=10, em_reg=None, dnn_reg=l2(0.005), function_a='elu', batch_size=2048, epochs=50,
+                save_name='only_dnn_2c'):
+    # 定义三个输入，分别代表用户、交互、平台情境
+    input_1 = Input(shape=(1,), name="input_1")
+    input_2 = Input(shape=(1,), name="input_2")
 
     # Embedding layer
 
-    embedding_input_1 = Embedding(input_dim=dim_1 + 1, output_dim=output_dim,
-                                  name='embedding_input_1', embeddings_regularizer=l2(l2_regularizer),
-                                  input_length=1)(input_1)
-    embedding_input_2 = Embedding(input_dim=dim_2 + 1, output_dim=output_dim,
-                                  name='embedding_input_2', embeddings_regularizer=l2(l2_regularizer),
-                                  input_length=1)(input_2)
+    embedding_input_1 = Embedding(input_dim=dim_list[0] + 1, output_dim=output_dim,
+                                  name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
+    embedding_input_2 = Embedding(input_dim=dim_list[1] + 1, output_dim=output_dim,
+                                  name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
 
-    # MF part
+    flatten_input_1 = Flatten()(embedding_input_1)
+    flatten_input_2 = Flatten()(embedding_input_2)
+
+    con_vector = concatenate([flatten_input_1, flatten_input_2])
+
+    layer1 = Dense(32, kernel_regularizer=dnn_reg, activation=function_a, name="layer1")(con_vector)
+    layer2 = Dense(16, kernel_regularizer=dnn_reg, activation=function_a, name="layer2")(layer1)
+    layer3 = Dense(8, kernel_regularizer=dnn_reg, activation=function_a, name="layer3")(layer2)
+
+    # Final prediction layer
+    prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(layer3)
+
+    model = Model(inputs=[input_1, input_2],
+                  outputs=[prediction])
+
+    model.summary()
+
+    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
+        threshold = math_ops.cast(threshold, y_pred.dtype)
+        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
+        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
+
+    model.compile(loss={'prediction': 'binary_crossentropy'},
+                  optimizer=Adam(),
+                  metrics=[binary_accuracy])
+
+    history = model.fit(train_list,
+                        label_list[0],
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        validation_data=(val_list,
+                                         label_list[1]))
+
+    history_dict = history.history
+    print(history_dict.keys())
+    print(history_dict)
+
+    import matplotlib.pyplot as plt
+
+    acc_str = 'binary_accuracy'
+    val_acc_str = 'val_' + 'binary_accuracy'
+
+    acc = history.history[acc_str]
+    val_acc = history.history[val_acc_str]
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+
+    epochs = range(1, len(acc) + 1)
+    epochs_index = range(0, len(acc))
+
+    # "bo" is for "blue dot"
+    plt.plot(epochs, loss, 'bo', label='Training loss')
+    # b is for "solid blue line"
+    plt.plot(epochs, val_loss, 'b', label='Validation loss')
+    plt.title(save_name + 'Training and validation loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    plt.clf()  # clear figure
+    acc_values = history_dict[acc_str]
+    val_acc_values = history_dict[val_acc_str]
+
+    plt.plot(epochs, acc, 'bo', label='Training acc')
+    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.title(save_name + 'Training and validation accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+    plt.show()
+
+    results = model.evaluate(test_list,
+                             label_list[2])
+
+    train_val_dict = {'train_acc': acc,
+                      'val_acc': val_acc,
+                      'train_loss': loss,
+                      'val_loss': val_loss,
+                      }
+
+    train_val_df = pd.DataFrame(train_val_dict, epochs_index)
+
+    test_dict = {'test_acc': [results[1]],
+                 'test_loss': [results[0]],
+                 }
+
+    test_df = pd.DataFrame(test_dict, [0])
+
+    all_df = pd.concat([train_val_df, test_df], axis=1)
+
+    all_df.to_csv(save_name + '.csv', index=False)
+
+    print(results)
+
+
+def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
+              output_dim=10, em_reg=None, dnn_reg=l2(0.005), function_a='elu', batch_size=2048, epochs=50,
+              save_name='deepca_2c'):
+    # 定义三个输入，分别代表用户、交互、平台情境
+    input_1 = Input(shape=(1,), name="input_1")
+    input_2 = Input(shape=(1,), name="input_2")
+
+    # Embedding layer
+
+    embedding_input_1 = Embedding(input_dim=dim_list[0] + 1, output_dim=output_dim,
+                                  name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
+    embedding_input_2 = Embedding(input_dim=dim_list[1] + 1, output_dim=output_dim,
+                                  name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
+
     flatten_input_1 = Flatten()(embedding_input_1)
     flatten_input_2 = Flatten()(embedding_input_2)
 
     mul_vector = multiply([flatten_input_1, flatten_input_2])  # element-wise multiply
     con_vector = concatenate([flatten_input_1, flatten_input_2])
 
-    layer1 = Dense(32, kernel_regularizer=l2(0), activation=function_a, name="layer1")(con_vector)
-    layer2 = Dense(16, kernel_regularizer=l2(0), activation=function_a, name="layer2")(layer1)
-    layer3 = Dense(8, kernel_regularizer=l2(0), activation=function_a, name="layer3")(layer2)
+    layer1 = Dense(32, kernel_regularizer=dnn_reg, activation=function_a, name="layer1")(con_vector)
+    layer2 = Dense(16, kernel_regularizer=dnn_reg, activation=function_a, name="layer2")(layer1)
+    layer3 = Dense(8, kernel_regularizer=dnn_reg, activation=function_a, name="layer3")(layer2)
 
     predict_vector = concatenate([mul_vector, layer3])
 
@@ -633,12 +848,12 @@ def deepca_2c(train_1, dim_1, train_2, dim_2, train_label, val_1, val_2, val_lab
                   optimizer=Adam(),
                   metrics=[binary_accuracy])
 
-    history = model.fit([train_1, train_2],
-                        [train_label],
+    history = model.fit(train_list,
+                        label_list[0],
                         batch_size=batch_size,
                         epochs=epochs,
-                        validation_data=([val_1, val_2],
-                                         [val_label]))
+                        validation_data=(val_list,
+                                         label_list[1]))
 
     history_dict = history.history
     print(history_dict.keys())
@@ -655,12 +870,13 @@ def deepca_2c(train_1, dim_1, train_2, dim_2, train_label, val_1, val_2, val_lab
     val_loss = history.history['val_loss']
 
     epochs = range(1, len(acc) + 1)
+    epochs_index = range(0, len(acc))
 
     # "bo" is for "blue dot"
     plt.plot(epochs, loss, 'bo', label='Training loss')
     # b is for "solid blue line"
     plt.plot(epochs, val_loss, 'b', label='Validation loss')
-    plt.title('Training and validation loss')
+    plt.title(save_name + 'Training and validation loss')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
@@ -673,20 +889,41 @@ def deepca_2c(train_1, dim_1, train_2, dim_2, train_label, val_1, val_2, val_lab
 
     plt.plot(epochs, acc, 'bo', label='Training acc')
     plt.plot(epochs, val_acc, 'b', label='Validation acc')
-    plt.title('Training and validation accuracy')
+    plt.title(save_name + 'Training and validation accuracy')
     plt.xlabel('Epochs')
     plt.ylabel('Loss')
     plt.legend()
 
     plt.show()
 
-    results = model.evaluate([test_1, test_2],
-                             [test_label])
+    results = model.evaluate(test_list,
+                             label_list[2])
+
+    train_val_dict = {'train_acc': acc,
+                      'val_acc': val_acc,
+                      'train_loss': loss,
+                      'val_loss': val_loss,
+                      }
+
+    train_val_df = pd.DataFrame(train_val_dict, epochs_index)
+
+    test_dict = {'test_acc': [results[1]],
+                 'test_loss': [results[0]],
+                 }
+
+    test_df = pd.DataFrame(test_dict, [0])
+
+    all_df = pd.concat([train_val_df, test_df], axis=1)
+
+    all_df.to_csv(save_name + '.csv', index=False)
+
     print(results)
 
 
 def deepca_3c(train_1, dim_1, train_2, dim_2, train_3, dim_3, train_label, val_1, val_2, val_3, val_label, test_1,
-              test_2, test_3, test_label, output_dim=10, l2_regularizer=0.01, function_a='elu', batch_size=1024, epochs=100):
+              test_2, test_3, test_label, output_dim=10, em_reg=l2(0.01), dnn_reg=l2(0.01), function_a='elu',
+              batch_size=1024,
+              epochs=100):
     # 定义三个输入，分别代表用户、交互、平台情境
     input_1 = Input(shape=(1,), name="input_1")
     input_2 = Input(shape=(1,), name="input_2")
@@ -697,15 +934,11 @@ def deepca_3c(train_1, dim_1, train_2, dim_2, train_3, dim_3, train_label, val_1
     # Embedding layer
 
     embedding_input_1 = Embedding(input_dim=dim_1 + 1, output_dim=output_dim,
-                                  name='embedding_input_1', embeddings_regularizer=l2(l2_regularizer),
-                                  input_length=1)(input_1)
+                                  name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
     embedding_input_2 = Embedding(input_dim=dim_2 + 1, output_dim=output_dim,
-                                  name='embedding_input_2', embeddings_regularizer=l2(l2_regularizer),
-                                  input_length=1)(input_2)
+                                  name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
     embedding_input_3 = Embedding(input_dim=dim_3 + 1, output_dim=output_dim,
-                                  name='embedding_input_3', embeddings_regularizer=l2(l2_regularizer),
-                                  input_length=1)(input_3)
-
+                                  name='embedding_input_3', embeddings_regularizer=em_reg, input_length=1)(input_3)
 
     flatten_input_1 = Flatten()(embedding_input_1)
     flatten_input_2 = Flatten()(embedding_input_2)
@@ -714,9 +947,9 @@ def deepca_3c(train_1, dim_1, train_2, dim_2, train_3, dim_3, train_label, val_1
     mul_vector = multiply([flatten_input_1, flatten_input_2, flatten_input_3])  # element-wise multiply
     con_vector = concatenate([flatten_input_1, flatten_input_2, flatten_input_3])
 
-    layer1 = Dense(32, kernel_regularizer=l2(0), activation=function_a, name="layer1")(con_vector)
-    layer2 = Dense(16, kernel_regularizer=l2(0), activation=function_a, name="layer2")(layer1)
-    layer3 = Dense(8, kernel_regularizer=l2(0), activation=function_a, name="layer3")(layer2)
+    layer1 = Dense(32, kernel_regularizer=dnn_reg, activation=function_a, name="layer1")(con_vector)
+    layer2 = Dense(16, kernel_regularizer=dnn_reg, activation=function_a, name="layer2")(layer1)
+    layer3 = Dense(8, kernel_regularizer=dnn_reg, activation=function_a, name="layer3")(layer2)
 
     predict_vector = concatenate([mul_vector, layer3])
 
@@ -790,31 +1023,39 @@ def deepca_3c(train_1, dim_1, train_2, dim_2, train_3, dim_3, train_label, val_1
 
 
 if __name__ == "__main__":
-    deepca_2c(train_1=train_cat_id_student,
-              dim_1=max_id_student,
-              train_2=train_cat_id_assessment,
-              dim_2=max_id_assessment,
-              train_label=train_label,
-              val_1=val_cat_id_student,
-              val_2=val_cat_id_assessment,
-              val_label=val_label,
-              test_1=test_cat_id_student,
-              test_2=test_cat_id_assessment,
-              test_label=test_label,
+    only_gmf_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
+                dim_list=[max_id_student, max_id_assessment],
+                val_list=[val_cat_id_student, val_cat_id_assessment],
+                test_list=[test_cat_id_student, test_cat_id_assessment],
+                label_list=[train_label, val_label, test_label],
+                )
+
+    only_dnn_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
+                dim_list=[max_id_student, max_id_assessment],
+                val_list=[val_cat_id_student, val_cat_id_assessment],
+                test_list=[test_cat_id_student, test_cat_id_assessment],
+                label_list=[train_label, val_label, test_label],
+                )
+
+    deepca_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
+              dim_list=[max_id_student, max_id_assessment],
+              val_list=[val_cat_id_student, val_cat_id_assessment],
+              test_list=[test_cat_id_student, test_cat_id_assessment],
+              label_list=[train_label, val_label, test_label],
               )
 
-    deepca_3c(train_1=train_cat_id_student, dim_1=max_id_student,
-              train_2=train_cat_id_assessment, dim_2=max_id_assessment,
-              train_3=train_cat_imd_band, dim_3=max_cat_imd_band,
-              train_label=train_label,
-
-              val_1=val_cat_id_student,
-              val_2=val_cat_id_assessment,
-              val_3=val_cat_imd_band,
-              val_label=val_label,
-
-              test_1=test_cat_id_student,
-              test_2=test_cat_id_assessment,
-              test_3=test_cat_imd_band,
-              test_label=test_label,
-              )
+    # deepca_3c(train_1=train_cat_id_student, dim_1=max_id_student,
+    #           train_2=train_cat_id_assessment, dim_2=max_id_assessment,
+    #           train_3=train_cat_imd_band, dim_3=max_cat_imd_band,
+    #           train_label=train_label,
+    #
+    #           val_1=val_cat_id_student,
+    #           val_2=val_cat_id_assessment,
+    #           val_3=val_cat_imd_band,
+    #           val_label=val_label,
+    #
+    #           test_1=test_cat_id_student,
+    #           test_2=test_cat_id_assessment,
+    #           test_3=test_cat_imd_band,
+    #           test_label=test_label,
+    #           )
