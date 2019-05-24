@@ -534,7 +534,7 @@ cat_activity_type = np.array(lscat_activity_type).T
 
 """
 
-merge_final = np.hstack([cat_id_student, cat_id_assessment, cat_score])
+merge_final = np.hstack([cat_id_student, cat_id_assessment, cat_highest_education, cat_imd_band, cat_score])
 
 # 将数组中所有元素转化为float32类型
 # merge_final = merge_final.astype('float32')
@@ -560,8 +560,6 @@ from keras import losses
 
 from math import log
 
-
-
 """
 
 模型设计A
@@ -574,49 +572,55 @@ column_2 = 160000
 # 训练数据集
 train_cat_id_student = merge_final[:column_1, :1]
 train_cat_id_assessment = merge_final[:column_1, 1:2]
-train_label = merge_final[:column_1, 2:]
+train_cat_highest_education = merge_final[:column_1, 2:3]
+train_cat_imd_band = merge_final[:column_1, 3:4]
+train_label = merge_final[:column_1, 4:]
 
 # 验证数据集
 val_cat_id_student = merge_final[column_1:column_2, :1]
 val_cat_id_assessment = merge_final[column_1:column_2, 1:2]
-val_label = merge_final[column_1:column_2, 2:]
+val_cat_highest_education = merge_final[column_1:column_2, 2:3]
+val_cat_imd_band = merge_final[column_1:column_2, 3:4]
+val_label = merge_final[column_1:column_2, 4:]
 
 # 测试集
 test_cat_id_student = merge_final[column_2:, :1]
 test_cat_id_assessment = merge_final[column_2:, 1:2]
-test_label = merge_final[column_2:, 2:]
+test_cat_highest_education = merge_final[column_2:, 2:3]
+test_cat_imd_band = merge_final[column_2:, 3:4]
+test_label = merge_final[column_2:, 4:]
 
 
-def only_gmf_2c(train_list, dim_list, val_list, test_list, label_list,
-                output_dim=10, em_reg=None, batch_size=2048, epochs=50, save_name='only_gmf_2c'):
-    # 定义三个输入，分别代表用户、交互、平台情境
+def only_gmf_4c(train_list, dim_list, val_list, test_list, label_list,
+                output_dim=10, em_reg=None, batch_size=2048, epochs=50, save_name='only_gmf_4c'):
     input_1 = Input(shape=(1,), name="input_1")
     input_2 = Input(shape=(1,), name="input_2")
-
-    # Embedding layer
+    input_3 = Input(shape=(1,), name="input_3")
+    input_4 = Input(shape=(1,), name="input_4")
 
     embedding_input_1 = Embedding(input_dim=dim_list[0] + 1, output_dim=output_dim,
                                   name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
     embedding_input_2 = Embedding(input_dim=dim_list[1] + 1, output_dim=output_dim,
                                   name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
+    embedding_input_3 = Embedding(input_dim=dim_list[2] + 1, output_dim=output_dim,
+                                  name='embedding_input_3', embeddings_regularizer=em_reg, input_length=1)(input_3)
+    embedding_input_4 = Embedding(input_dim=dim_list[3] + 1, output_dim=output_dim,
+                                  name='embedding_input_4', embeddings_regularizer=em_reg, input_length=1)(input_4)
 
     flatten_input_1 = Flatten()(embedding_input_1)
     flatten_input_2 = Flatten()(embedding_input_2)
+    flatten_input_3 = Flatten()(embedding_input_3)
+    flatten_input_4 = Flatten()(embedding_input_4)
 
-    mul_vector = multiply([flatten_input_1, flatten_input_2])  # element-wise multiply
+    mul_vector = multiply([flatten_input_1, flatten_input_2, flatten_input_3, flatten_input_4])  # element-wise multiply
 
     # Final prediction layer
     prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(mul_vector)
 
-    model = Model(inputs=[input_1, input_2],
+    model = Model(inputs=[input_1, input_2, input_3, input_4],
                   outputs=[prediction])
 
     model.summary()
-
-    def binary_accuracy(y_true, y_pred, threshold=0.5):
-        threshold = math_ops.cast(threshold, y_pred.dtype)
-        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
-        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
 
     model.compile(loss={'prediction': 'binary_crossentropy'},
                   optimizer=Adam(),
@@ -699,24 +703,29 @@ def only_gmf_2c(train_list, dim_list, val_list, test_list, label_list,
     print(results)
 
 
-def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
+def only_dnn_4c(train_list, dim_list, val_list, test_list, label_list,
                 output_dim=10, em_reg=None, dnn_reg=l2(0.005), function_a='elu', batch_size=2048, epochs=50,
-                save_name='only_dnn_2c'):
-    # 定义三个输入，分别代表用户、交互、平台情境
+                save_name='only_dnn_4c'):
     input_1 = Input(shape=(1,), name="input_1")
     input_2 = Input(shape=(1,), name="input_2")
-
-    # Embedding layer
+    input_3 = Input(shape=(1,), name="input_3")
+    input_4 = Input(shape=(1,), name="input_4")
 
     embedding_input_1 = Embedding(input_dim=dim_list[0] + 1, output_dim=output_dim,
                                   name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
     embedding_input_2 = Embedding(input_dim=dim_list[1] + 1, output_dim=output_dim,
                                   name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
+    embedding_input_3 = Embedding(input_dim=dim_list[2] + 1, output_dim=output_dim,
+                                  name='embedding_input_3', embeddings_regularizer=em_reg, input_length=1)(input_3)
+    embedding_input_4 = Embedding(input_dim=dim_list[3] + 1, output_dim=output_dim,
+                                  name='embedding_input_4', embeddings_regularizer=em_reg, input_length=1)(input_4)
 
     flatten_input_1 = Flatten()(embedding_input_1)
     flatten_input_2 = Flatten()(embedding_input_2)
+    flatten_input_3 = Flatten()(embedding_input_3)
+    flatten_input_4 = Flatten()(embedding_input_4)
 
-    con_vector = concatenate([flatten_input_1, flatten_input_2])
+    con_vector = concatenate([flatten_input_1, flatten_input_2, flatten_input_3, flatten_input_4])
 
     layer1 = Dense(32, kernel_regularizer=dnn_reg, activation=function_a, name="layer1")(con_vector)
     layer2 = Dense(16, kernel_regularizer=dnn_reg, activation=function_a, name="layer2")(layer1)
@@ -725,15 +734,10 @@ def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
     # Final prediction layer
     prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(layer3)
 
-    model = Model(inputs=[input_1, input_2],
+    model = Model(inputs=[input_1, input_2, input_3, input_4],
                   outputs=[prediction])
 
     model.summary()
-
-    def binary_accuracy(y_true, y_pred, threshold=0.5):
-        threshold = math_ops.cast(threshold, y_pred.dtype)
-        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
-        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
 
     model.compile(loss={'prediction': 'binary_crossentropy'},
                   optimizer=Adam(),
@@ -816,25 +820,31 @@ def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
     print(results)
 
 
-def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
+def deepca_4c(train_list, dim_list, val_list, test_list, label_list,
               output_dim=10, em_reg=None, dnn_reg=l2(0.005), function_a='elu', batch_size=2048, epochs=50,
-              save_name='deepca_2c'):
-    # 定义三个输入，分别代表用户、交互、平台情境
+              save_name='deepca_4c'):
     input_1 = Input(shape=(1,), name="input_1")
     input_2 = Input(shape=(1,), name="input_2")
-
-    # Embedding layer
+    input_3 = Input(shape=(1,), name="input_3")
+    input_4 = Input(shape=(1,), name="input_4")
 
     embedding_input_1 = Embedding(input_dim=dim_list[0] + 1, output_dim=output_dim,
                                   name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
     embedding_input_2 = Embedding(input_dim=dim_list[1] + 1, output_dim=output_dim,
                                   name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
+    embedding_input_3 = Embedding(input_dim=dim_list[2] + 1, output_dim=output_dim,
+                                  name='embedding_input_3', embeddings_regularizer=em_reg, input_length=1)(input_3)
+    embedding_input_4 = Embedding(input_dim=dim_list[3] + 1, output_dim=output_dim,
+                                  name='embedding_input_4', embeddings_regularizer=em_reg, input_length=1)(input_4)
 
     flatten_input_1 = Flatten()(embedding_input_1)
     flatten_input_2 = Flatten()(embedding_input_2)
+    flatten_input_3 = Flatten()(embedding_input_3)
+    flatten_input_4 = Flatten()(embedding_input_4)
 
-    mul_vector = multiply([flatten_input_1, flatten_input_2])  # element-wise multiply
-    con_vector = concatenate([flatten_input_1, flatten_input_2])
+    mul_vector = multiply([flatten_input_1, flatten_input_2, flatten_input_3, flatten_input_4])  # element-wise multiply
+
+    con_vector = concatenate([flatten_input_1, flatten_input_2, flatten_input_3, flatten_input_4])
 
     layer1 = Dense(32, kernel_regularizer=dnn_reg, activation=function_a, name="layer1")(con_vector)
     layer2 = Dense(16, kernel_regularizer=dnn_reg, activation=function_a, name="layer2")(layer1)
@@ -845,15 +855,10 @@ def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
     # Final prediction layer
     prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(predict_vector)
 
-    model = Model(inputs=[input_1, input_2],
+    model = Model(inputs=[input_1, input_2, input_3, input_4],
                   outputs=[prediction])
 
     model.summary()
-
-    def binary_accuracy(y_true, y_pred, threshold=0.5):
-        threshold = math_ops.cast(threshold, y_pred.dtype)
-        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
-        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
 
     model.compile(loss={'prediction': 'binary_crossentropy'},
                   optimizer=Adam(),
@@ -937,25 +942,26 @@ def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
 
 
 if __name__ == "__main__":
-    only_gmf_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
-                dim_list=[max_id_student, max_id_assessment],
-                val_list=[val_cat_id_student, val_cat_id_assessment],
-                test_list=[test_cat_id_student, test_cat_id_assessment],
-                label_list=[train_label, val_label, test_label],
-                )
+    only_gmf_4c(
+        train_list=[train_cat_id_student, train_cat_id_assessment, train_cat_highest_education, train_cat_imd_band],
+        dim_list=[max_id_student, max_id_assessment, max_highest_education, max_imd_band],
+        val_list=[val_cat_id_student, val_cat_id_assessment, val_cat_highest_education, val_cat_imd_band],
+        test_list=[test_cat_id_student, test_cat_id_assessment, test_cat_highest_education, test_cat_imd_band],
+        label_list=[train_label, val_label, test_label],
+        )
 
-    only_dnn_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
-                dim_list=[max_id_student, max_id_assessment],
-                val_list=[val_cat_id_student, val_cat_id_assessment],
-                test_list=[test_cat_id_student, test_cat_id_assessment],
-                label_list=[train_label, val_label, test_label],
-                )
+    only_dnn_4c(
+        train_list=[train_cat_id_student, train_cat_id_assessment, train_cat_highest_education, train_cat_imd_band],
+        dim_list=[max_id_student, max_id_assessment, max_highest_education, max_imd_band],
+        val_list=[val_cat_id_student, val_cat_id_assessment, val_cat_highest_education, val_cat_imd_band],
+        test_list=[test_cat_id_student, test_cat_id_assessment, test_cat_highest_education, test_cat_imd_band],
+        label_list=[train_label, val_label, test_label],
+        )
 
-    deepca_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
-              dim_list=[max_id_student, max_id_assessment],
-              val_list=[val_cat_id_student, val_cat_id_assessment],
-              test_list=[test_cat_id_student, test_cat_id_assessment],
-              label_list=[train_label, val_label, test_label],
-              )
-
-
+    deepca_4c(
+        train_list=[train_cat_id_student, train_cat_id_assessment, train_cat_highest_education, train_cat_imd_band],
+        dim_list=[max_id_student, max_id_assessment, max_highest_education, max_imd_band],
+        val_list=[val_cat_id_student, val_cat_id_assessment, val_cat_highest_education, val_cat_imd_band],
+        test_list=[test_cat_id_student, test_cat_id_assessment, test_cat_highest_education, test_cat_imd_band],
+        label_list=[train_label, val_label, test_label],
+        )
