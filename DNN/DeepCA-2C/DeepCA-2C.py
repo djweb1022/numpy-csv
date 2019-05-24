@@ -28,6 +28,7 @@ for gender in list_gender:
         num_gender.append(2)
 
 cat_gender = np.array(num_gender)
+max_gender = cat_gender.max()
 cat_gender = cat_gender.reshape(cat_gender.shape[0], 1)
 
 """
@@ -83,6 +84,7 @@ for region in list_region:
         num_region.append(13)
 
 cat_region = np.array(num_region)
+max_region = cat_region.max()
 cat_region = cat_region.reshape(cat_region.shape[0], 1)
 
 """
@@ -114,6 +116,7 @@ for education in list_highest_education:
         num_highest_education.append(5)
 
 cat_highest_education = np.array(num_highest_education)
+max_highest_education = cat_highest_education.max()
 cat_highest_education = cat_highest_education.reshape(cat_highest_education.shape[0], 1)
 
 """
@@ -166,6 +169,7 @@ for imd in list_imd_band:
         num_imd_band.append(11)
 
 cat_imd_band = np.array(num_imd_band)
+max_imd_band = cat_imd_band.max()
 cat_imd_band = cat_imd_band.reshape(cat_imd_band.shape[0], 1)
 
 """
@@ -191,6 +195,7 @@ for age in list_age_band:
         num_age_band.append(3)
 
 cat_age_band = np.array(num_age_band)
+max_age_band = cat_age_band.max()
 cat_age_band = cat_age_band.reshape(cat_age_band.shape[0], 1)
 
 """
@@ -212,6 +217,7 @@ list_num_of_prev_attempts = list(total_merge['num_of_prev_attempts'])
 list_num_of_prev_attempts_1 = [i + 1 for i in list_num_of_prev_attempts]
 
 cat_num_of_prev_attempts = np.array(list_num_of_prev_attempts_1)
+max_num_of_prev_attempts = cat_num_of_prev_attempts.max()
 cat_num_of_prev_attempts = cat_num_of_prev_attempts.reshape(cat_num_of_prev_attempts.shape[0], 1)
 
 """
@@ -247,6 +253,7 @@ for cred_num in list_studied_credits:
         num_studied_credits.append(6)
 
 cat_studied_credits = np.array(num_studied_credits)
+max_studied_credits = cat_studied_credits.max()
 cat_studied_credits = cat_studied_credits.reshape(cat_studied_credits.shape[0], 1)
 
 """
@@ -269,6 +276,7 @@ for dis in list_disability:
         num_disability.append(2)
 
 cat_disability = np.array(num_disability)
+max_disability = cat_disability.max()
 cat_disability = cat_disability.reshape(cat_disability.shape[0], 1)
 
 """
@@ -325,6 +333,7 @@ for astype in list_assessment_type:
         num_assessment_type.append(3)
 
 cat_assessment_type = np.array(num_assessment_type)
+max_assessment_type = cat_assessment_type.max()
 cat_assessment_type = cat_assessment_type.reshape(cat_assessment_type.shape[0], 1)
 
 """
@@ -551,6 +560,8 @@ from keras import losses
 
 from math import log
 
+
+
 """
 
 模型设计A
@@ -612,14 +623,14 @@ def only_gmf_2c(train_list, dim_list, val_list, test_list, label_list,
 
     model.summary()
 
-    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
+    def binary_accuracy(y_true, y_pred, threshold=0.5):
         threshold = math_ops.cast(threshold, y_pred.dtype)
         y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
         return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
 
     model.compile(loss={'prediction': 'binary_crossentropy'},
                   optimizer=Adam(),
-                  metrics=[binary_accuracy])
+                  metrics=[km.binary_precision(), km.binary_recall(), km.f1_score()])
 
     history = model.fit(train_list,
                         label_list[0],
@@ -634,16 +645,17 @@ def only_gmf_2c(train_list, dim_list, val_list, test_list, label_list,
 
     import matplotlib.pyplot as plt
 
-    acc_str = 'binary_accuracy'
-    val_acc_str = 'val_' + 'binary_accuracy'
-
-    acc = history.history[acc_str]
-    val_acc = history.history[val_acc_str]
+    precision = history.history['precision']
+    val_precision = history.history['val_precision']
+    recall = history.history['recall']
+    val_recall = history.history['val_recall']
+    f1_score = history.history['f1_score']
+    val_f1_score = history.history['val_f1_score']
     loss = history.history['loss']
     val_loss = history.history['val_loss']
 
-    epochs = range(1, len(acc) + 1)
-    epochs_index = range(0, len(acc))
+    epochs = range(1, len(loss) + 1)
+    epochs_index = range(0, len(loss))
 
     # "bo" is for "blue dot"
     plt.plot(epochs, loss, 'bo', label='Training loss')
@@ -657,14 +669,12 @@ def only_gmf_2c(train_list, dim_list, val_list, test_list, label_list,
     plt.show()
 
     plt.clf()  # clear figure
-    acc_values = history_dict[acc_str]
-    val_acc_values = history_dict[val_acc_str]
 
-    plt.plot(epochs, acc, 'bo', label='Training acc')
-    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.plot(epochs, f1_score, 'bo', label='Training acc')
+    plt.plot(epochs, val_f1_score, 'b', label='Validation acc')
     plt.title(save_name + 'Training and validation accuracy')
     plt.xlabel('Epochs')
-    plt.ylabel('Loss')
+    plt.ylabel('Accuracy')
     plt.legend()
 
     plt.show()
@@ -672,15 +682,21 @@ def only_gmf_2c(train_list, dim_list, val_list, test_list, label_list,
     results = model.evaluate(test_list,
                              label_list[2])
 
-    train_val_dict = {'train_acc': acc,
-                      'val_acc': val_acc,
-                      'train_loss': loss,
+    train_val_dict = {'precision': precision,
+                      'val_precision': val_precision,
+                      'recall': recall,
+                      'val_recall': val_recall,
+                      'f1_score': f1_score,
+                      'val_f1_score': val_f1_score,
+                      'loss': loss,
                       'val_loss': val_loss,
                       }
 
     train_val_df = pd.DataFrame(train_val_dict, epochs_index)
 
-    test_dict = {'test_acc': [results[1]],
+    test_dict = {'test_precision': [results[1]],
+                 'test_recall': [results[2]],
+                 'test_f1_score': [results[3]],
                  'test_loss': [results[0]],
                  }
 
@@ -724,14 +740,14 @@ def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
 
     model.summary()
 
-    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
+    def binary_accuracy(y_true, y_pred, threshold=0.5):
         threshold = math_ops.cast(threshold, y_pred.dtype)
         y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
         return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
 
     model.compile(loss={'prediction': 'binary_crossentropy'},
                   optimizer=Adam(),
-                  metrics=[binary_accuracy])
+                  metrics=[km.binary_precision(), km.binary_recall(), km.f1_score()])
 
     history = model.fit(train_list,
                         label_list[0],
@@ -746,16 +762,17 @@ def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
 
     import matplotlib.pyplot as plt
 
-    acc_str = 'binary_accuracy'
-    val_acc_str = 'val_' + 'binary_accuracy'
-
-    acc = history.history[acc_str]
-    val_acc = history.history[val_acc_str]
+    precision = history.history['precision']
+    val_precision = history.history['val_precision']
+    recall = history.history['recall']
+    val_recall = history.history['val_recall']
+    f1_score = history.history['f1_score']
+    val_f1_score = history.history['val_f1_score']
     loss = history.history['loss']
     val_loss = history.history['val_loss']
 
-    epochs = range(1, len(acc) + 1)
-    epochs_index = range(0, len(acc))
+    epochs = range(1, len(loss) + 1)
+    epochs_index = range(0, len(loss))
 
     # "bo" is for "blue dot"
     plt.plot(epochs, loss, 'bo', label='Training loss')
@@ -769,14 +786,12 @@ def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
     plt.show()
 
     plt.clf()  # clear figure
-    acc_values = history_dict[acc_str]
-    val_acc_values = history_dict[val_acc_str]
 
-    plt.plot(epochs, acc, 'bo', label='Training acc')
-    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.plot(epochs, f1_score, 'bo', label='Training acc')
+    plt.plot(epochs, val_f1_score, 'b', label='Validation acc')
     plt.title(save_name + 'Training and validation accuracy')
     plt.xlabel('Epochs')
-    plt.ylabel('Loss')
+    plt.ylabel('Accuracy')
     plt.legend()
 
     plt.show()
@@ -784,15 +799,21 @@ def only_dnn_2c(train_list, dim_list, val_list, test_list, label_list,
     results = model.evaluate(test_list,
                              label_list[2])
 
-    train_val_dict = {'train_acc': acc,
-                      'val_acc': val_acc,
-                      'train_loss': loss,
+    train_val_dict = {'precision': precision,
+                      'val_precision': val_precision,
+                      'recall': recall,
+                      'val_recall': val_recall,
+                      'f1_score': f1_score,
+                      'val_f1_score': val_f1_score,
+                      'loss': loss,
                       'val_loss': val_loss,
                       }
 
     train_val_df = pd.DataFrame(train_val_dict, epochs_index)
 
-    test_dict = {'test_acc': [results[1]],
+    test_dict = {'test_precision': [results[1]],
+                 'test_recall': [results[2]],
+                 'test_f1_score': [results[3]],
                  'test_loss': [results[0]],
                  }
 
@@ -839,14 +860,14 @@ def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
 
     model.summary()
 
-    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
+    def binary_accuracy(y_true, y_pred, threshold=0.5):
         threshold = math_ops.cast(threshold, y_pred.dtype)
         y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
         return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
 
     model.compile(loss={'prediction': 'binary_crossentropy'},
                   optimizer=Adam(),
-                  metrics=[binary_accuracy])
+                  metrics=[km.binary_precision(), km.binary_recall(), km.f1_score()])
 
     history = model.fit(train_list,
                         label_list[0],
@@ -861,16 +882,17 @@ def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
 
     import matplotlib.pyplot as plt
 
-    acc_str = 'binary_accuracy'
-    val_acc_str = 'val_' + 'binary_accuracy'
-
-    acc = history.history[acc_str]
-    val_acc = history.history[val_acc_str]
+    precision = history.history['precision']
+    val_precision = history.history['val_precision']
+    recall = history.history['recall']
+    val_recall = history.history['val_recall']
+    f1_score = history.history['f1_score']
+    val_f1_score = history.history['val_f1_score']
     loss = history.history['loss']
     val_loss = history.history['val_loss']
 
-    epochs = range(1, len(acc) + 1)
-    epochs_index = range(0, len(acc))
+    epochs = range(1, len(loss) + 1)
+    epochs_index = range(0, len(loss))
 
     # "bo" is for "blue dot"
     plt.plot(epochs, loss, 'bo', label='Training loss')
@@ -884,14 +906,12 @@ def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
     plt.show()
 
     plt.clf()  # clear figure
-    acc_values = history_dict[acc_str]
-    val_acc_values = history_dict[val_acc_str]
 
-    plt.plot(epochs, acc, 'bo', label='Training acc')
-    plt.plot(epochs, val_acc, 'b', label='Validation acc')
+    plt.plot(epochs, f1_score, 'bo', label='Training acc')
+    plt.plot(epochs, val_f1_score, 'b', label='Validation acc')
     plt.title(save_name + 'Training and validation accuracy')
     plt.xlabel('Epochs')
-    plt.ylabel('Loss')
+    plt.ylabel('Accuracy')
     plt.legend()
 
     plt.show()
@@ -899,15 +919,21 @@ def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
     results = model.evaluate(test_list,
                              label_list[2])
 
-    train_val_dict = {'train_acc': acc,
-                      'val_acc': val_acc,
-                      'train_loss': loss,
+    train_val_dict = {'precision': precision,
+                      'val_precision': val_precision,
+                      'recall': recall,
+                      'val_recall': val_recall,
+                      'f1_score': f1_score,
+                      'val_f1_score': val_f1_score,
+                      'loss': loss,
                       'val_loss': val_loss,
                       }
 
     train_val_df = pd.DataFrame(train_val_dict, epochs_index)
 
-    test_dict = {'test_acc': [results[1]],
+    test_dict = {'test_precision': [results[1]],
+                 'test_recall': [results[2]],
+                 'test_f1_score': [results[3]],
                  'test_loss': [results[0]],
                  }
 
@@ -920,108 +946,6 @@ def deepca_2c(train_list, dim_list, val_list, test_list, label_list,
     print(results)
 
 
-def deepca_3c(train_1, dim_1, train_2, dim_2, train_3, dim_3, train_label, val_1, val_2, val_3, val_label, test_1,
-              test_2, test_3, test_label, output_dim=10, em_reg=l2(0.01), dnn_reg=l2(0.01), function_a='elu',
-              batch_size=1024,
-              epochs=100):
-    # 定义三个输入，分别代表用户、交互、平台情境
-    input_1 = Input(shape=(1,), name="input_1")
-    input_2 = Input(shape=(1,), name="input_2")
-    input_3 = Input(shape=(1,), name="input_3")
-
-    input_label = Input(shape=(1,), name="input_label")
-
-    # Embedding layer
-
-    embedding_input_1 = Embedding(input_dim=dim_1 + 1, output_dim=output_dim,
-                                  name='embedding_input_1', embeddings_regularizer=em_reg, input_length=1)(input_1)
-    embedding_input_2 = Embedding(input_dim=dim_2 + 1, output_dim=output_dim,
-                                  name='embedding_input_2', embeddings_regularizer=em_reg, input_length=1)(input_2)
-    embedding_input_3 = Embedding(input_dim=dim_3 + 1, output_dim=output_dim,
-                                  name='embedding_input_3', embeddings_regularizer=em_reg, input_length=1)(input_3)
-
-    flatten_input_1 = Flatten()(embedding_input_1)
-    flatten_input_2 = Flatten()(embedding_input_2)
-    flatten_input_3 = Flatten()(embedding_input_3)
-
-    mul_vector = multiply([flatten_input_1, flatten_input_2, flatten_input_3])  # element-wise multiply
-    con_vector = concatenate([flatten_input_1, flatten_input_2, flatten_input_3])
-
-    layer1 = Dense(32, kernel_regularizer=dnn_reg, activation=function_a, name="layer1")(con_vector)
-    layer2 = Dense(16, kernel_regularizer=dnn_reg, activation=function_a, name="layer2")(layer1)
-    layer3 = Dense(8, kernel_regularizer=dnn_reg, activation=function_a, name="layer3")(layer2)
-
-    predict_vector = concatenate([mul_vector, layer3])
-
-    # Final prediction layer
-    prediction = Dense(1, activation='sigmoid', kernel_initializer='lecun_uniform', name="prediction")(predict_vector)
-
-    model = Model(inputs=[input_1, input_2, input_3],
-                  outputs=[prediction])
-
-    model.summary()
-
-    def binary_accuracy(y_true, y_pred, threshold=(limit_score / 100)):
-        threshold = math_ops.cast(threshold, y_pred.dtype)
-        y_pred = math_ops.cast(y_pred >= threshold, y_pred.dtype)
-        return K.mean(math_ops.equal(y_true, y_pred), axis=-1)
-
-    model.compile(loss={'prediction': 'binary_crossentropy'},
-                  optimizer=Adam(),
-                  metrics=[binary_accuracy])
-
-    history = model.fit([train_1, train_2, train_3],
-                        [train_label],
-                        batch_size=batch_size,
-                        epochs=epochs,
-                        validation_data=([val_1, val_2, val_3],
-                                         [val_label]))
-
-    history_dict = history.history
-    print(history_dict.keys())
-    print(history_dict)
-
-    import matplotlib.pyplot as plt
-
-    acc_str = 'binary_accuracy'
-    val_acc_str = 'val_' + 'binary_accuracy'
-
-    acc = history.history[acc_str]
-    val_acc = history.history[val_acc_str]
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
-
-    epochs = range(1, len(acc) + 1)
-
-    # "bo" is for "blue dot"
-    plt.plot(epochs, loss, 'bo', label='Training loss')
-    # b is for "solid blue line"
-    plt.plot(epochs, val_loss, 'b', label='Validation loss')
-    plt.title('Training and validation loss')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-
-    plt.show()
-
-    plt.clf()  # clear figure
-    acc_values = history_dict[acc_str]
-    val_acc_values = history_dict[val_acc_str]
-
-    plt.plot(epochs, acc, 'bo', label='Training acc')
-    plt.plot(epochs, val_acc, 'b', label='Validation acc')
-    plt.title('Training and validation accuracy')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.legend()
-
-    plt.show()
-
-    results = model.evaluate([test_1, test_2, test_3],
-                             [test_label])
-    print(results)
-
-
 if __name__ == "__main__":
     only_gmf_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
                 dim_list=[max_id_student, max_id_assessment],
@@ -1030,32 +954,18 @@ if __name__ == "__main__":
                 label_list=[train_label, val_label, test_label],
                 )
 
-    only_dnn_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
-                dim_list=[max_id_student, max_id_assessment],
-                val_list=[val_cat_id_student, val_cat_id_assessment],
-                test_list=[test_cat_id_student, test_cat_id_assessment],
-                label_list=[train_label, val_label, test_label],
-                )
-
-    deepca_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
-              dim_list=[max_id_student, max_id_assessment],
-              val_list=[val_cat_id_student, val_cat_id_assessment],
-              test_list=[test_cat_id_student, test_cat_id_assessment],
-              label_list=[train_label, val_label, test_label],
-              )
-
-    # deepca_3c(train_1=train_cat_id_student, dim_1=max_id_student,
-    #           train_2=train_cat_id_assessment, dim_2=max_id_assessment,
-    #           train_3=train_cat_imd_band, dim_3=max_cat_imd_band,
-    #           train_label=train_label,
+    # only_dnn_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
+    #             dim_list=[max_id_student, max_id_assessment],
+    #             val_list=[val_cat_id_student, val_cat_id_assessment],
+    #             test_list=[test_cat_id_student, test_cat_id_assessment],
+    #             label_list=[train_label, val_label, test_label],
+    #             )
     #
-    #           val_1=val_cat_id_student,
-    #           val_2=val_cat_id_assessment,
-    #           val_3=val_cat_imd_band,
-    #           val_label=val_label,
-    #
-    #           test_1=test_cat_id_student,
-    #           test_2=test_cat_id_assessment,
-    #           test_3=test_cat_imd_band,
-    #           test_label=test_label,
+    # deepca_2c(train_list=[train_cat_id_student, train_cat_id_assessment],
+    #           dim_list=[max_id_student, max_id_assessment],
+    #           val_list=[val_cat_id_student, val_cat_id_assessment],
+    #           test_list=[test_cat_id_student, test_cat_id_assessment],
+    #           label_list=[train_label, val_label, test_label],
     #           )
+
+

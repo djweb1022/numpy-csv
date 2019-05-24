@@ -20,9 +20,9 @@ deepca_2c = pd.read_csv('deepca_2c.csv')
 
 
 def trainacc_2c():
-    train_acc_1 = np.array(only_gmf_2c['train_acc'])
-    train_acc_2 = np.array(only_dnn_2c['train_acc'])
-    train_acc_3 = np.array(deepca_2c['train_acc'])
+    train_acc_1 = np.array(only_gmf_2c['val_f1_score'])
+    train_acc_2 = np.array(only_dnn_2c['val_f1_score'])
+    train_acc_3 = np.array(deepca_2c['val_f1_score'])
 
     epochs = range(1, len(train_acc_1)+1)
 
@@ -36,12 +36,15 @@ def trainacc_2c():
     # ax.set_xticks([0,1])
     # ax.set_yticks([-1, 2, 4, 6, 8, 10])
 
-    ax.plot(epochs, train_acc_1, label="1", linestyle="-")
-    ax.plot(epochs, train_acc_2, label="2", linestyle="-")
+    ax.plot(epochs, train_acc_1, label="1", linestyle="--")
+    ax.plot(epochs, train_acc_2, label="2", linestyle="-.")
     ax.plot(epochs, train_acc_3, label="3", linestyle="-")
-    # ax.plot([0,1,2,3], [0,1,2,3], label="3", linestyle="-")
+    ax.tick_params(labelsize=18)
 
-    plt.legend(loc=2, prop=my_font)
+    plt.xlabel('迭代次数', fontproperties=my_font)
+    plt.ylabel('F1-score', fontproperties=my_font)
+
+    plt.legend(loc=4, prop=my_font)
     plt.tight_layout()
     plt.show()
 
